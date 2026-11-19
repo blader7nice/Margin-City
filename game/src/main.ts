@@ -16,11 +16,14 @@ import { FrameMetrics } from './metrics';
 
 // ------------------------------------------------------------------ config from URL
 const params = new URLSearchParams(location.search);
-const qName = (params.get('q') as QualityName) || (localStorageGet('mc.q') as QualityName) || 'medium';
+// Inside a hosted frame only a plain #name survives, so the main switches also accept a hash.
+const hash = location.hash.slice(1);
+const hashQ = hash in QUALITY ? (hash as QualityName) : null;
+const qName = (params.get('q') as QualityName) || hashQ || (localStorageGet('mc.q') as QualityName) || 'medium';
 const Q = QUALITY[qName] ?? QUALITY.medium;
-let techMode = params.get('view') === 'tech';
-let debugOn = params.get('debug') === '1' || techMode;
-const bench = params.get('bench') === '1';
+let techMode = params.get('view') === 'tech' || hash === 'tech';
+let debugOn = params.get('debug') === '1' || hash === 'debug' || techMode;
+const bench = params.get('bench') === '1' || hash === 'bench';
 const autostart = params.get('autostart') === '1' || bench;
 const spawnParam = params.get('spawn')?.split(',').map(Number);
 const freeze = params.get('freeze') === '1';
@@ -43,6 +46,18 @@ function localStorageSet(k: string, v: string): void {
 }
 
 performance.mark('mc-script-start');
+
+function switchQuality(q: QualityName): void {
+  localStorageSet('mc.q', q);
+  if (params.has('q')) {
+    const u = new URL(location.href);
+    u.searchParams.set('q', q);
+    location.href = u.toString();
+    return;
+  }
+  location.hash = q;
+  location.reload();
+}
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 // ------------------------------------------------------------------ renderer
@@ -132,12 +147,7 @@ async function boot(): Promise<void> {
   btn.onclick = () => start();
   document.querySelectorAll<HTMLButtonElement>('#qualityRow button').forEach((b) => {
     if (b.dataset.q === Q.name) b.classList.add('sel');
-    b.onclick = () => {
-      localStorageSet('mc.q', b.dataset.q!);
-      const u = new URL(location.href);
-      u.searchParams.set('q', b.dataset.q!);
-      location.href = u.toString();
-    };
+    b.onclick = () => switchQuality(b.dataset.q as QualityName);
   });
   if (autostart) start();
   requestAnimationFrame(loop);
@@ -297,12 +307,7 @@ function loop(now: number): void {
     ['Digit2', 'medium'],
     ['Digit3', 'high'],
   ] as const) {
-    if (input.wasPressed(code) && q !== Q.name) {
-      localStorageSet('mc.q', q);
-      const u = new URL(location.href);
-      u.searchParams.set('q', q);
-      location.href = u.toString();
-    }
+    if (input.wasPressed(code) && q !== Q.name) switchQuality(q);
   }
   if (started && !freeze) {
     const inp = bench ? autopilot() : director.inCinematic ? NO_INPUT : input.state();
@@ -411,9 +416,10 @@ function updateHud(dt: number): void {
       $('endStats').innerHTML = `Czas: ${Math.round(sim.time)} s · złapania: ${sim.catches}<br>To jest koniec prototypu wizualno-rozgrywkowego.`;
       $('againBtn').onclick = () => location.reload();
       $('techBtn').onclick = () => {
-        const u = new URL(location.href);
-        u.searchParams.set('view', 'tech');
-        location.href = u.toString();
+        $('end').style.display = 'none';
+        techMode = true;
+        debugOn = true;
+        applyView();
       };
     }, 2600);
   }
