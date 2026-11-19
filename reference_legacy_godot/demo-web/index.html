@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Margin City — playable greybox</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#07111b;color:#f2eada;display:flex;align-items:center;justify-content:center}
+.shell{width:min(100vw,177.777vh);position:relative;aspect-ratio:16/9;overflow:hidden;background:#0c1b29;box-shadow:0 14px 75px #0008}
+#game{display:block;width:100%;height:100%}
+.top{position:absolute;top:0;left:0;right:0;padding:2.4% 3%;pointer-events:none;display:flex;justify-content:space-between;align-items:flex-start;gap:24px;background:linear-gradient(#061018b9,transparent);text-shadow:0 2px 8px #000}
+.logo{font-weight:800;letter-spacing:.21em;font-size:clamp(12px,1.35vw,22px)}.eyebrow{letter-spacing:.12em;color:#c4d1c7;font-size:clamp(10px,.85vw,14px);margin-top:8px}.pill{padding:9px 14px;border:1px solid #8ab7af55;border-radius:99px;background:#132934aa;color:#ceebd9;font-size:clamp(10px,.88vw,14px)}
+.bottom{position:absolute;bottom:0;left:0;right:0;display:flex;gap:18px;align-items:flex-end;justify-content:space-between;padding:2.4% 3%;pointer-events:none;background:linear-gradient(transparent,#03101bbe)}
+#tip{font-size:clamp(11px,1vw,17px);color:#f8ebce;max-width:67%;line-height:1.5}#status{font-size:clamp(10px,.83vw,14px);line-height:1.5;text-align:right;color:#add4c8}
+.key{display:inline-block;color:#fff;opacity:.9;border:1px solid #bcd1c978;border-radius:4px;padding:1px 5px;margin:0 1px;background:#ffffff12;font-weight:650}
+.modal{position:absolute;inset:0;background:#020913dd;display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(8px)}.hidden{display:none!important}
+.panel{width:min(800px,94%);max-height:95%;overflow:auto;padding:clamp(16px,2.2vw,30px);border:1px solid #59827e9e;border-radius:18px;background:linear-gradient(140deg,#142b37,#0c1724 80%);box-shadow:0 16px 60px #0009}
+.panel h2{font-size:clamp(16px,1.6vw,25px);letter-spacing:.05em;margin:0 0 7px}.small{color:#aec3bd;font-size:clamp(11px,.85vw,14px);line-height:1.5}.stats{display:flex;gap:10px;margin:14px 0}.stat{padding:8px 12px;flex:1;border-radius:9px;background:#27404a6b;font-size:clamp(11px,.9vw,14px)}.stat b{display:block;font-size:clamp(13px,1.1vw,18px);margin-top:2px}
+#chart{display:block;width:100%;height:auto;border:1px solid #3c5c64;border-radius:10px;background:#06141e;aspect-ratio:3.4/1}
+.buttons{display:flex;gap:10px;margin:14px 0 8px;flex-wrap:wrap}button{border:1px solid #79958d77;background:#1d3844;color:#f7efe2;border-radius:9px;font-size:14px;font-weight:750;letter-spacing:.05em;cursor:pointer;padding:11px 16px;flex:1;min-width:100px}button:hover:not(:disabled){filter:brightness(1.24)}button:disabled{opacity:.44;cursor:not-allowed}button.long{background:#165b4b}button.short{background:#7a3644}button.skip{background:#334753}button.primary{background:#22685f}
+#tradeResult{color:#e8f8ef;min-height:20px;margin-top:7px;font-size:clamp(11px,.9vw,15px)}.complete{color:#bceca8}.touch{position:absolute;bottom:12%;left:3%;right:3%;display:none;justify-content:space-between;pointer-events:none}.touch>div{display:flex;gap:7px}.touch button{pointer-events:auto;opacity:.6;padding:12px 16px;min-width:auto;flex:0}
+@media(max-width:850px){.top .eyebrow{display:none}.bottom #status{display:none}.bottom #tip{max-width:100%}.touch{display:flex}.panel{padding:12px}.stats{margin:6px 0}.buttons{margin:6px 0}.modal{padding:6px}}
+</style>
+</head>
+<body>
+<main class="shell">
+<canvas id="game" width="1280" height="720" aria-label="Margin City — demonstracja rozgrywki"></canvas>
+<div class="top"><div><div class="logo">MARGIN CITY <span style="color:#e4be78">/ 001</span></div><div class="eyebrow">THE LAST SHIFT · PROTOTYP MECHANIK</div></div><div class="pill" id="mission">CEL: dotrzyj do terminala</div></div>
+<div class="bottom"><div id="tip">Ruszaj się <span class="key">A</span><span class="key">D</span> · skacz <span class="key">SPACJA</span> · biegnij <span class="key">SHIFT</span> · chowaj się przy zielonych wnękach <span class="key">CTRL</span></div><div id="status">INSPEKTOR: PATROL<br>SCHWYTANIA: 0</div></div>
+<div class="touch"><div><button data-control="a">◀</button><button data-control="d">▶</button><button data-control="space">SKOK</button></div><div><button data-control="control">KRYJ</button><button data-control="shift">BIEG</button><button data-control="e">E</button></div></div>
+<div class="modal hidden" id="terminal" role="dialog" aria-label="Terminal treningowy">
+<div class="panel">
+<h2>TERMINAL / MARKET REPLAY</h2>
+<div class="small">DEMO/USD — DANE SYNTETYCZNE, NIE NOTOWANIA RYNKOWE. Pierwszych 12 świec. Po decyzji odkryjemy kolejne 8. Możesz też nie zawierać transakcji.</div>
+<div class="stats"><div class="stat">Kapitał w grze<b id="capital">$1 000.00</b></div><div class="stat">Nominał transakcji<b>$100.00</b></div><div class="stat">Koszty<b>30 bps round-trip</b></div></div>
+<canvas id="chart" width="750" height="225" aria-label="Wykres świecowy, fikcyjne ceny"></canvas>
+<div class="buttons"><button id="long" class="long">LONG</button><button id="short" class="short">SHORT</button><button id="skip" class="skip">POMIŃ</button></div>
+<div id="tradeResult">Cel: zdecyduj, czy rynek oferuje przewagę. Wynik nie blokuje fabuły.</div>
+<div class="buttons"><button id="close" class="primary">Zamknij terminal</button></div>
+</div></div>
+</main>
+<script>
+'use strict';
+// THROWAWAY browser-feel demo. Godot is the canonical production project.
+// Everything procedural, zero network calls, zero real-money trading.
+const CANDLES = [{"o":100.0,"h":101.3,"l":99.1,"c":100.9},{"o":100.9,"h":102.1,"l":100.3,"c":101.7},{"o":101.7,"h":101.9,"l":99.8,"c":100.0},{"o":100.0,"h":100.8,"l":98.9,"c":99.2},{"o":99.2,"h":100.1,"l":97.9,"c":98.5},{"o":98.5,"h":99.5,"l":97.8,"c":99.0},{"o":99.0,"h":100.6,"l":98.2,"c":100.1},{"o":100.1,"h":101.6,"l":99.6,"c":101.1},{"o":101.1,"h":102.4,"l":100.5,"c":101.9},{"o":101.9,"h":102.2,"l":100.0,"c":100.6},{"o":100.6,"h":101.0,"l":99.0,"c":99.4},{"o":99.4,"h":100.1,"l":98.4,"c":98.9},{"o":98.9,"h":99.5,"l":97.6,"c":98.0},{"o":98.0,"h":98.7,"l":96.9,"c":97.3},{"o":97.3,"h":98.8,"l":97.1,"c":98.5},{"o":98.5,"h":100.0,"l":98.3,"c":99.4},{"o":99.4,"h":100.2,"l":98.6,"c":99.8},{"o":99.8,"h":101.1,"l":99.3,"c":100.8},{"o":100.8,"h":101.5,"l":99.7,"c":100.0},{"o":100.0,"h":102.0,"l":99.9,"c":101.7}];
+const W=1280,H=720,WORLD=2650,GROUND=562;
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const chart=document.getElementById('chart'),cx=chart.getContext('2d');
+const $=id=>document.getElementById(id);
+const keys=Object.create(null);
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const hideSpots=[810,1350,1850];
+const crates=[{x:490,w:72,h:64},{x:2130,w:74,h:61}];
+const player={x:155,y:GROUND,vy:0,grounded:true,hidden:false,crouch:false,sprinting:false};
+const guard={x:1330,dir:1,state:'PATROL',suspicion:0,timer:0,last:1330};
+let cameraX=0,captures=0,open=false,completed=false,animating=false,visibleBars=12,cash=1000,frame=0,lastTime=performance.now();
+const stateNames={PATROL:'PATROL',SUSPICIOUS:'PODEJRZENIE',CHASE:'POŚCIG',SEARCH:'PRZESZUKIWANIE',RETURN:'POWRÓT'};
+const keyName=e=>e.key.toLowerCase()===' '?'space':e.key.toLowerCase();
+window.addEventListener('keydown',e=>{
+  let k=keyName(e);if(['arrowleft','arrowright','space','control','shift'].includes(k)) e.preventDefault();
+  keys[k]=true;
+  if(k==='e'&&!e.repeat&&!open&&Math.abs(player.x-2440)<125&&!completed)showTerminal();
+  if(k==='escape'&&open&&!animating)hideTerminal();
+});
+window.addEventListener('keyup',e=>{keys[keyName(e)]=false});
+window.addEventListener('blur',()=>{for(let k in keys)keys[k]=false});
+document.querySelectorAll('[data-control]').forEach(b=>{
+  const name=b.dataset.control;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();keys[name]=true;b.setPointerCapture(e.pointerId);if(name==='e'&&!open&&Math.abs(player.x-2440)<125&&!completed)showTerminal()});
+  for(let ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>{keys[name]=false});
+});
+function mode(s){if(guard.state!==s){guard.state=s;guard.timer=0}}
+function moveGuard(target,speed,dt){if(Math.abs(guard.x-target)>1){guard.dir=Math.sign(target-guard.x);guard.x+=Math.sign(target-guard.x)*Math.min(Math.abs(target-guard.x),speed*dt)}}
+function caught(){captures++;player.x=155;player.y=GROUND;player.vy=0;guard.x=1330;guard.dir=1;guard.suspicion=0;mode('PATROL');cameraX=0;}
+function update(dt){
+  if(open)return;
+  frame+=dt;
+  let dir=Number(!!(keys.d||keys.arrowright))-Number(!!(keys.a||keys.arrowleft));
+  player.crouch=!!(keys.control||keys.c);
+  player.sprinting=!!keys.shift&&!player.crouch&&dir!==0;
+  const speed=player.crouch?76:(player.sprinting?255:148);
+  let dx=dir*speed*dt,nextX=clamp(player.x+dx,38,WORLD-40);
+  for(let c of crates){let collide=player.y>GROUND-c.h+8&&nextX+19>c.x&&nextX-19<c.x+c.w;
+    if(collide){nextX=dx>0?c.x-19:dx<0?c.x+c.w+19:nextX;}}
+  player.x=nextX;
+  if(player.grounded&&(keys.space||keys.arrowup)&&!player.crouch){player.vy=-475;player.grounded=false;}
+  player.vy+=1150*dt;player.y+=player.vy*dt;
+  if(player.y>=GROUND){player.y=GROUND;player.vy=0;player.grounded=true}else player.grounded=false;
+  player.hidden=player.crouch&&player.grounded&&hideSpots.some(x=>Math.abs(player.x-x)<66);
+  const distance=Math.abs(player.x-guard.x),facing=(player.x-guard.x)*guard.dir>=0;
+  const visible=!player.hidden&&player.y>GROUND-140&&distance<(player.crouch?165:325)&&(facing||distance<60);
+  const heard=player.sprinting&&!player.hidden&&distance<260;
+  if(visible){guard.suspicion=clamp(guard.suspicion+dt*1.25,0,1);guard.last=player.x}
+  else{guard.suspicion=clamp(guard.suspicion-dt*.55,0,1)}
+  if(guard.suspicion>.72&&guard.state!=='CHASE')mode('CHASE');
+  else if(heard&&guard.state==='PATROL'){guard.last=player.x;mode('SUSPICIOUS')}
+  guard.timer+=dt;
+  if(guard.state==='PATROL'){
+    moveGuard(guard.dir>0?1760:940,105,dt);
+    if(guard.x>=1759)guard.dir=-1;if(guard.x<=941)guard.dir=1;
+  }else if(guard.state==='SUSPICIOUS'){
+    moveGuard(guard.last,138,dt);if(guard.timer>2.3)mode('SEARCH');
+  }else if(guard.state==='CHASE'){
+    if(!visible)mode('SEARCH');else moveGuard(player.x,225,dt);
+    if(visible&&distance<40&&Math.abs(player.y-GROUND)<100)caught();
+  }else if(guard.state==='SEARCH'){
+    moveGuard(guard.last,115,dt);if(guard.timer>3.2)mode('RETURN');
+  }else if(guard.state==='RETURN'){
+    moveGuard(clamp(guard.x,940,1760),105,dt);if(guard.timer>.7)mode('PATROL');
+  }
+  const desired=clamp(player.x-365,0,WORLD-W);
+  cameraX+=(desired-cameraX)*Math.min(1,dt*2.8);
+  $('status').innerHTML=`INSPEKTOR: ${stateNames[guard.state]}<br>SCHWYTANIA: ${captures}`;
+  const nearTerminal=Math.abs(player.x-2440)<125;
+  $('tip').innerHTML=completed?'<span class="complete">MISJA UKOŃCZONA.</span> Obejrzyj wynik i zaplanuj następny etap.':nearTerminal?'Naciśnij <span class="key">E</span>, aby otworzyć terminal.':player.hidden?'JESTEŚ UKRYTY — Inspektor nie może cię zobaczyć.': 'Ruch <span class="key">A/D</span> · skok <span class="key">SPACJA</span> · bieg <span class="key">SHIFT</span> · kryjówka <span class="key">CTRL</span>';
+}
+function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h)}
+function circle(x,y,r,color){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill()}
+function gradient(x,y,r,rgba){const g=ctx.createRadialGradient(x,y,2,x,y,r);g.addColorStop(0,rgba);g.addColorStop(1,'#0000');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,2*r,2*r)}
+function draw(){
+  let sky=ctx.createLinearGradient(0,0,0,720);sky.addColorStop(0,'#0a192d');sky.addColorStop(.60,'#24485a');sky.addColorStop(1,'#162a34');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  gradient(995-cameraX*.04,110,170,'#e1e7d75a');circle(995-cameraX*.04,110,43,'#cadcdb');
+  // Distant skyline / parallax, intentionally not based on any commercial game asset.
+  for(let i=0;i<30;i++){
+    const x=i*140-280-cameraX*.20,h=120+(i*79%200),base=495;
+    rect(x,base-h,95,h,'#173044');rect(x+14,base-h-23,12,23,'#21394c');
+    for(let row=0;row<Math.floor(h/24);row++)for(let col=0;col<3;col++)if((i*13+row*7+col*11)%5<2)rect(x+14+col*25,base-h+15+row*24,7,10,'#c6bc8c56');
+  }
+  // Tall, surreal architecture behind the gameplay lane.
+  ctx.save();ctx.translate(-cameraX*.56,0);
+  for(let i=0;i<14;i++){
+    const x=i*240-230;rect(x,145,26,425,'#162b39');rect(x-10,137,46,25,'#1b3440');
+    rect(x+42,260,85,310,'#203d49');rect(x+43,255,83,10,'#45616a');
+    gradient(x+84,302,115,'#d5b77b1f');rect(x+82,262,5,265,'#bca16b33');
+  }ctx.restore();
+  // Ground; subtle glowing train tracks / grand stone walkways.
+  rect(0,GROUND+6,W,154,'#14232b');rect(0,GROUND+2,W,4,'#658a8d');
+  for(let x=-(cameraX%75);x<W+75;x+=75){rect(x,GROUND+7,2,165,'#3c58605e')}
+  rect(0,GROUND+91,W,4,'#30464d');
+  ctx.save();ctx.translate(-cameraX,0);
+  for(let x of hideSpots){
+    rect(x-66,325,132,232,'#101b28');rect(x-76,319,152,15,'#52616c');rect(x-53,349,106,205,'#263f48');rect(x-30,355,60,178,'#102b32');
+    gradient(x,351,83,'#56c6a12c');rect(x-46,338,92,5,'#5ab69c');
+    ctx.fillStyle='#99e1bf';ctx.font='bold 15px system-ui';ctx.textAlign='center';ctx.fillText('KRYJÓWKA',x,310);
+  }
+  for(let c of crates){rect(c.x,GROUND-c.h,c.w,c.h,'#69564b');rect(c.x+5,GROUND-c.h+5,c.w-10,c.h-10,'#55483e');
+    ctx.strokeStyle='#988271';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(c.x+6,GROUND-c.h+7);ctx.lineTo(c.x+c.w-6,GROUND-7);ctx.moveTo(c.x+c.w-6,GROUND-c.h+7);ctx.lineTo(c.x+6,GROUND-7);ctx.stroke();}
+  // Terminal
+  gradient(2440,425,175,'#4bead555');rect(2398,441,84,117,'#596672');rect(2389,350,102,95,'#1b414a');rect(2395,358,90,75,'#116e74');
+  rect(2404,370,72,4,'#84dfbd');rect(2404,387,45,4,'#84dfbd');rect(2404,405,57,4,'#84dfbd');
+  ctx.textAlign='center';ctx.font='bold 15px system-ui';ctx.fillStyle='#b1f4e4';ctx.fillText('TERMINAL',2440,323);
+  // Enemy vision cone
+  let col=guard.state==='CHASE'?'#f3716c40':'#e4bf7b1f';ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(guard.x,GROUND-85);ctx.lineTo(guard.x+guard.dir*320,GROUND-170);ctx.lineTo(guard.x+guard.dir*320,GROUND+3);ctx.closePath();ctx.fill();
+  // Inspector, disproportionate and easily readable.
+  let bx=guard.x;rect(bx-23,GROUND-145,46,144,'#3f1c29');rect(bx-33,GROUND-153,66,13,'#180f1c');rect(bx-17,GROUND-184,34,36,'#8e6c65');rect(bx-37,GROUND-187,74,11,'#261521');rect(bx-27,GROUND-203,54,17,'#2d1c26');
+  rect(bx-31,GROUND-75,16,76,'#2d1721');rect(bx+14,GROUND-75,16,76,'#2d1721');rect(bx-31,GROUND-141,12,82,'#542a32');rect(bx+19,GROUND-141,12,82,'#542a32');
+  circle(bx+guard.dir*9,GROUND-166,4,guard.state==='CHASE'?'#ff5d6b':'#ffc48a');gradient(bx+guard.dir*9,GROUND-166,35,guard.state==='CHASE'?'#f3485690':'#eaa56b60');
+  // Character shadow and silhouette
+  circle(player.x,GROUND+2,23,'#06121b9c');
+  const py=player.y;let pose=player.crouch?24:0;rect(player.x-12,py-70+pose,24,66-pose,'#c69a61');rect(player.x-20,py-62+pose,40,48-pose,'#a86f49');
+  rect(player.x-10,py-19,8,20,'#4a3e45');rect(player.x+4,py-19,8,20,'#4a3e45');circle(player.x,py-83+pose,16,'#e9c9a0');
+  rect(player.x-17,py-101+pose,34,8,'#76634f');rect(player.x-19,py-89+pose,9,10,'#a86f49');rect(player.x+14,py-61+pose,14,24,'#5b473d');
+  rect(player.x-9,py-58+pose,31,5,'#e0b37d');
+  if(player.hidden){gradient(player.x,py-60,88,'#5ed9b24e');ctx.textAlign='center';ctx.fillStyle='#a8f7d3';ctx.font='bold 15px system-ui';ctx.fillText('UKRYTY',player.x,py-125);}
+  ctx.restore();
+  // Foreground pillars: intended to signal depth, not to occlude gameplay.
+  ctx.save();ctx.translate(-cameraX*1.07,0);for(let x of [60,1090,1920,2880]){rect(x,0,35,720,'#081623a1');rect(x-7,0,49,45,'#0c1d27a8')}ctx.restore();
+  if(guard.suspicion>.08){const bx=guard.x-cameraX;ctx.fillStyle='#13242e';ctx.fillRect(bx-34,GROUND-236,68,8);ctx.fillStyle=guard.state==='CHASE'?'#f46b72':'#e5cb80';ctx.fillRect(bx-34,GROUND-236,68*guard.suspicion,8)}
+  if(completed){ctx.textAlign='center';ctx.fillStyle='#daedd5';ctx.font='bold 33px system-ui';ctx.fillText('MISJA UKOŃCZONA',W/2,170)}
+}
+function chartDraw(){
+  const w=chart.width,h=chart.height;cx.fillStyle='#071723';cx.fillRect(0,0,w,h);
+  for(let i=1;i<5;i++){cx.strokeStyle='#4b687333';cx.beginPath();cx.moveTo(0,h*i/5);cx.lineTo(w,h*i/5);cx.stroke()}
+  let shown=CANDLES.slice(0,visibleBars),high=Math.max(...shown.map(c=>c.h)),low=Math.min(...shown.map(c=>c.l)),pad=(high-low)*.15;high+=pad;low-=pad;
+  const step=(w-40)/20,y=p=>14+(high-p)/(high-low)*(h-28);
+  shown.forEach((c,i)=>{const x=22+step*(i+.5),up=c.c>=c.o;cx.strokeStyle=cx.fillStyle=up?'#6cddac':'#ef7d86';cx.lineWidth=2;cx.beginPath();cx.moveTo(x,y(c.h));cx.lineTo(x,y(c.l));cx.stroke();cx.fillRect(x-6,Math.min(y(c.o),y(c.c)),12,Math.max(2,Math.abs(y(c.o)-y(c.c))))});
+  cx.strokeStyle='#d3e9cf66';cx.setLineDash([5,5]);cx.beginPath();cx.moveTo(22+12*step,0);cx.lineTo(22+12*step,h);cx.stroke();cx.setLineDash([]);
+  cx.fillStyle='#deebdf';cx.font='13px system-ui';cx.fillText('HISTORIA',25,20);cx.fillText('PO DECYZJI',w-134,20);
+}
+function showTerminal(){open=true;$('terminal').classList.remove('hidden');chartDraw()}
+function hideTerminal(){if(animating)return;open=false;$('terminal').classList.add('hidden');$('mission').textContent=completed?'MISJA UKOŃCZONA':'CEL: dotrzyj do terminala'}
+function trade(decision){if(completed||animating)return;animating=true;['long','short','skip'].forEach(id=>$(id).disabled=true);$('close').disabled=true;
+  $('tradeResult').textContent='Odtwarzanie świec. Czas i ceny są testowe...';
+  const timer=setInterval(()=>{visibleBars++;chartDraw();if(visibleBars<20)return;clearInterval(timer);
+    const entry=CANDLES[11].c,exit=CANDLES[19].c,notional=100,charge=decision==='POMIN'?0:notional*.003;
+    const pnl=decision==='LONG'?notional*(exit/entry-1)-charge:decision==='SHORT'?notional*(1-exit/entry)-charge:0;
+    cash+=pnl;completed=true;animating=false;$('capital').textContent='$'+cash.toFixed(2);$('close').disabled=false;
+    $('tradeResult').innerHTML=`<span class="complete">${decision}</span> · wejście ${entry.toFixed(2)} · wyjście ${exit.toFixed(2)} · PnL netto: ${pnl>=0?'+':''}$${pnl.toFixed(2)} · kapitał: $${cash.toFixed(2)}`;
+  },230);
+}
+$('long').addEventListener('click',()=>trade('LONG'));$('short').addEventListener('click',()=>trade('SHORT'));$('skip').addEventListener('click',()=>trade('POMIN'));$('close').addEventListener('click',hideTerminal);
+function loop(now){let dt=clamp((now-lastTime)/1000,0,.035);lastTime=now;update(dt);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
