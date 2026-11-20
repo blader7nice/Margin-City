@@ -6,6 +6,7 @@ import { clockFace, corrugated, hazardStripes, radialSprite, signTexture, ticker
 import { FORECAST, HIDE_SPOTS, LIGHT_ZONES, MEZZ_Y, SOLIDS, VAULT } from '../sim/level';
 import type { Solid } from '../sim/types';
 import type { Quality } from './quality';
+import type { LightPool } from './lightPool';
 
 /**
  * The visual layer of "The Last Shift" trading hall.
@@ -32,6 +33,8 @@ export interface HallRefs {
   nookDoor: THREE.Object3D;
   lockerDoor: THREE.Object3D;
   envScene: THREE.Scene;
+  /** Large objects that may stand between camera and Leon (faded by the occlusion system). */
+  occluders: THREE.Object3D[];
 }
 
 export interface HallFrameContext {
@@ -43,7 +46,7 @@ export interface HallFrameContext {
   hiddenIn: string | null;
 }
 
-interface Mats {
+export interface Mats {
   marble: THREE.MeshStandardMaterial;
   stone: THREE.MeshStandardMaterial;
   stoneDark: THREE.MeshStandardMaterial;
@@ -64,7 +67,7 @@ interface Mats {
   black: THREE.MeshStandardMaterial;
 }
 
-function makeMats(a: Assets): Mats {
+export function makeMats(a: Assets): Mats {
   const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial(p);
   const marble = std({
     map: a.get('marble_albedo', (HALL_X1 - HALL_X0) / 4, 40 / 4),
@@ -127,7 +130,7 @@ function setUV2(g: THREE.BufferGeometry): THREE.BufferGeometry {
   return g;
 }
 
-function mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, cast = true, receive = true): THREE.Mesh {
+export function mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, cast = true, receive = true): THREE.Mesh {
   const me = new THREE.Mesh(g, m);
   me.position.set(x, y, z);
   me.castShadow = cast;
@@ -136,7 +139,7 @@ function mesh(g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, c
 }
 
 /** Box with UVs scaled to world metres (so tiling textures keep a constant texel density). */
-function worldBox(w: number, h: number, d: number, scale = 1): THREE.BoxGeometry {
+export function worldBox(w: number, h: number, d: number, scale = 1): THREE.BoxGeometry {
   const g = new THREE.BoxGeometry(w, h, d);
   const uv = g.attributes.uv as THREE.BufferAttribute;
   const pos = g.attributes.position as THREE.BufferAttribute;
@@ -165,7 +168,7 @@ function worldBox(w: number, h: number, d: number, scale = 1): THREE.BoxGeometry
 }
 
 /** Fluted Deco column shaft. */
-function flutedColumn(radius: number, height: number, flutes = 20, radial = 80): THREE.BufferGeometry {
+export function flutedColumn(radius: number, height: number, flutes = 20, radial = 80): THREE.BufferGeometry {
   const g = new THREE.CylinderGeometry(radius, radius * 1.04, height, radial, 1, true);
   const pos = g.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++) {
@@ -224,11 +227,12 @@ function solidById(id: string): Solid {
   return s;
 }
 
-export function buildHall(a: Assets, q: Quality): HallRefs {
+export function buildHall(a: Assets, q: Quality, lights: LightPool): HallRefs {
   const root = new THREE.Group();
   root.name = 'hall';
   const M = makeMats(a);
   const casters: THREE.Object3D[] = [];
+  const occluders: THREE.Object3D[] = [];
   const updaters: ((t: number, dt: number, ctx: HallFrameContext) => void)[] = [];
   const add = (o: THREE.Object3D, cast = false) => {
     root.add(o);
@@ -237,9 +241,16 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
   };
 
   // ---------- Floor ----------
-  const floorGeo = new THREE.PlaneGeometry(HALL_X1 - HALL_X0, 40);
+  // Marble floor of the hall + corridor (the archive wing beyond x=45 has its own floor).
+  const FLOOR_X1 = 45;
+  const floorGeo = new THREE.PlaneGeometry(FLOOR_X1 - HALL_X0, 40);
   floorGeo.rotateX(-Math.PI / 2);
-  const floor = mesh(floorGeo, M.marble, (HALL_X0 + HALL_X1) / 2, 0, -8, false, true);
+  {
+    const uv = floorGeo.attributes.uv as THREE.BufferAttribute;
+    const k = (FLOOR_X1 - HALL_X0) / (HALL_X1 - HALL_X0);
+    for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * k);
+  }
+  const floor = mesh(floorGeo, M.marble, (HALL_X0 + FLOOR_X1) / 2, 0, -8, false, true);
   add(floor);
 
   // ---------- Back wall with arched windows ----------
@@ -380,15 +391,13 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     // Railing behind Leon + cold light from the open service door he came through.
     add(mesh(new THREE.BoxGeometry(w, 0.06, 0.06), M.brass, (s.x0 + s.x1) / 2, s.y1 + 1.0, -3.0, false, false));
     for (let x = s.x0 + 0.3; x < s.x1; x += 0.5) add(mesh(new THREE.BoxGeometry(0.03, 1.0, 0.03), M.bronzeDark, x, s.y1 + 0.5, -3.0, false, false));
-    const doorGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.45, 0.62, 0.9).multiplyScalar(2.2) });
+    const doorGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.45, 0.62, 0.9).multiplyScalar(0.85) });
     add(mesh(new THREE.PlaneGeometry(1.6, 2.6), doorGlow, -35.5, s.y1 + 1.3, -3.35, false, false));
     add(mesh(worldBox(2.3, 3.1, 0.4), M.stoneDark, -35.5, s.y1 + 1.55, -3.6, false, false));
     // Small doorway structure (no full wall: the monumental hall must open up behind Leon).
     add(mesh(worldBox(4.2, 4.4, 1.0), M.stoneDark, -35.5, s.y1 + 2.2, -4.0, false, true));
     add(mesh(new THREE.BoxGeometry(2.6, 0.12, 1.1), M.brass, -35.5, s.y1 + 3.0, -3.45, false, false));
-    const doorLight = new THREE.PointLight(0x8fb4ff, 14, 9, 2);
-    doorLight.position.set(-35.5, s.y1 + 1.6, -2.4);
-    add(doorLight);
+    lights.add({ position: [-35.5, s.y1 + 1.6, -2.4], color: 0x8fb4ff, intensity: 7, distance: 9, decay: 2 });
   }
 
   // ---------- Archive cabinets (stepped descent) ----------
@@ -476,6 +485,7 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     for (let z = 3.6; z < 9; z += 0.35) g.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 7, 5), M.bronzeDark, cx, 3.5, z, false, false));
     for (let z = -4.0; z > -10; z -= 0.35) g.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 7, 5), M.bronzeDark, cx, 3.5, z, false, false));
     add(g, true);
+    occluders.push(g);
   }
 
   // ---------- Trading counters ----------
@@ -512,11 +522,7 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     pool.position.set(lx, s.y1 + 0.005, -0.05);
     g.add(pool);
     lampPools.push(pool);
-    if (q.extraLights) {
-      const pl = new THREE.PointLight(0xffd7a0, 2.2, 4.5, 2);
-      pl.position.set(lx, s.y1 + 0.28, -0.1);
-      g.add(pl);
-    }
+    lights.add({ position: [lx, s.y1 + 0.28, -0.1], color: 0xffd7a0, intensity: 2.6, distance: 4.5, decay: 2 });
     // Paper stacks, ledger, phone
     for (let k = 0; k < 3; k++) {
       const st = mesh(new THREE.BoxGeometry(0.3, 0.04 + k * 0.03, 0.22), M.paperWhite, cx - 0.5 + k * 0.42, s.y1 + 0.02 + k * 0.015, 0.15 - k * 0.1, true, false);
@@ -720,7 +726,6 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     { id: 'pendantMid', z: -0.4, y: 7.6 },
     { id: 'pendantEast', z: -0.6, y: 5.6 },
   ];
-  const pendantLights: { light: THREE.PointLight; base: number; flick: number }[] = [];
   const shadeProfile = [
     new THREE.Vector2(0.05, 0.55),
     new THREE.Vector2(0.18, 0.5),
@@ -739,10 +744,7 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     (shade.material as THREE.Material).side = THREE.DoubleSide;
     g.add(shade);
     g.add(mesh(new THREE.SphereGeometry(0.17, 16, 10), M.amberGlow, 0, 0.05, 0, false, false));
-    const light = new THREE.PointLight(0xffb469, 75 * z.intensity, 0, 2);
-    light.position.set(0, -0.15, 0);
-    g.add(light);
-    pendantLights.push({ light, base: light.intensity, flick: d.id === 'pendantEast' ? 1 : 0 });
+    lights.add({ position: [z.x, d.y - 0.15, d.z], color: 0xffb469, intensity: 75 * z.intensity, distance: 0, decay: 2, flicker: d.id === 'pendantEast' ? 1 : 0 });
     g.position.set(z.x, d.y, d.z);
     add(g);
     // floor pool (fake bounce; also tells the player "this is lit")
@@ -750,13 +752,6 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     pool.position.set(z.x, 0.008, d.z + 0.4);
     add(pool);
   }
-  updaters.push((t) => {
-    for (const p of pendantLights) {
-      if (!p.flick) continue;
-      const n = Math.sin(t * 23.0) * Math.sin(t * 7.3) * Math.sin(t * 1.3);
-      p.light.intensity = p.base * (n > 0.55 ? 0.25 : 1);
-    }
-  });
 
   // ---------- Skylight shafts (moon zones) ----------
   const shaftMat = (op: number) =>
@@ -842,10 +837,23 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     g.add(mesh(worldBox(20, 7, 0.4), M.stone, 34, 3.5, cz, false, true));
     g.add(mesh(worldBox(20, 2.4, 0.3), M.wood, 34, 1.2, cz + 0.33, false, true));
     g.add(mesh(new THREE.BoxGeometry(20, 0.06, 0.34), M.brass, 34, 2.43, cz + 0.36, false, false));
-    g.add(mesh(worldBox(20, 0.5, 9), M.stoneDark, 34, 7.2, 0.5, true, false));
+    g.add(mesh(worldBox(20.4, 0.4, 3.6), M.stoneDark, 34.2, 7.2, -2.0, false, false));
+    g.add(mesh(new THREE.BoxGeometry(20.4, 0.12, 0.2), M.brass, 34.2, 7.0, -0.2, false, false));
     g.add(mesh(worldBox(0.6, 7.4, 21), M.stoneDark, 24.2, 11, -14.5, false, true));
-    g.add(mesh(worldBox(0.6, 20, 5), M.stoneDark, 24.2, 17, 1.0, false, true));
-    g.add(mesh(worldBox(1.0, 38, 30), M.stoneDark, 44.5, 19, -8, false, true));
+    g.add(mesh(worldBox(0.6, 20, 2.4), M.stoneDark, 24.2, 17, -2.4, false, true));
+    g.add(mesh(worldBox(1.0, 4.4, 30), M.stoneDark, 44.5, 2.2, -8, false, true));
+    g.add(mesh(worldBox(1.0, 31.3, 30), M.stoneDark, 44.5, 6.7 + 15.65, -8, false, true));
+    g.add(mesh(worldBox(1.0, 2.3, 28.2), M.stoneDark, 44.5, 5.55, -9.1 - 0.0, false, true));
+    // Deco sconces + a soft key on the vault so the B-12 corner reads in the dark.
+    for (const sx of [27.2, 41.6]) {
+      g.add(mesh(new THREE.CylinderGeometry(0.16, 0.09, 0.36, 12, 1, true), M.brass, sx, 3.4, cz + 0.45, false, false));
+      g.add(mesh(new THREE.SphereGeometry(0.1, 10, 8), M.amberGlow, sx, 3.45, cz + 0.5, false, false));
+      lights.add({ position: [sx, 3.3, cz + 1.0], color: 0xffb46a, intensity: 9, distance: 7, decay: 2 });
+    }
+    const vaultKey = new THREE.SpotLight(0xffd9a8, 40, 14, 0.45, 0.7, 2);
+    vaultKey.position.set(VAULT.x - 2.5, 6.4, 2.5);
+    vaultKey.target.position.set(VAULT.x, 2.2, cz);
+    g.add(vaultKey, vaultKey.target);
     // Vault door
     const vx = VAULT.x;
     const door = new THREE.Group();
@@ -870,16 +878,14 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
     g.add(mesh(new THREE.PlaneGeometry(2.6, 0.46), sign, vx, 5.25, cz + 0.32, false, false));
     // caged bulb
     g.add(mesh(new THREE.SphereGeometry(0.12, 12, 8), M.amberGlow, vx, 5.95, cz + 0.55, false, false));
-    const vl = new THREE.PointLight(0xffb066, 26, 0, 2);
-    vl.position.set(vx, 5.8, cz + 0.9);
-    g.add(vl);
+    lights.add({ position: [vx, 5.8, cz + 0.9], color: 0xffb066, intensity: 26, distance: 0, decay: 2 });
     add(g, true);
   }
 
   // ---------- Foreground layer (silhouettes, fade when blocking Leon) ----------
   const fg: { obj: THREE.Mesh; x: number; mat: THREE.MeshStandardMaterial }[] = [];
   const fgShaft = flutedColumn(0.42, 34, 12, 32);
-  for (const x of [-24.5, -6.5, 17, 33]) {
+  for (const x of [-24.5, -6.5, 15.5]) {
     const mat = M.silhouette.clone();
     const c = mesh(fgShaft, mat, x, 17, 6.2, false, false);
     add(c);
@@ -1090,5 +1096,5 @@ export function buildHall(a: Assets, q: Quality): HallRefs {
   };
 
   void setUV2;
-  return { root, update, moon, shadowCasters: casters, boothDoor, nookDoor, lockerDoor, envScene };
+  return { root, update, moon, shadowCasters: casters, boothDoor, nookDoor, lockerDoor, envScene, occluders };
 }

@@ -11,6 +11,9 @@ export class Audio {
   private pulse!: GainNode;
   private noiseBuf!: AudioBuffer;
   private pulseT = 0;
+  private klaxonT = 0;
+  private alarm = false;
+  private creakT = 0;
   enabled = true;
 
   start(): void {
@@ -178,8 +181,46 @@ export class Audio {
     }
   }
 
+  setAlarm(on: boolean): void {
+    this.alarm = on;
+  }
+  slam(): void {
+    this.burst(90, 0.7, 0.5, 0.5, 'lowpass');
+    this.burst(1800, 3, 0.12, 0.2);
+  }
+  whoosh(): void {
+    this.burst(900, 0.6, 0.12, 0.35, 'bandpass');
+  }
+  clank(): void {
+    this.burst(2600, 8, 0.12, 0.15);
+    this.burst(420, 2, 0.16, 0.25);
+  }
+  rumble(): void {
+    this.burst(160, 1.2, 0.06, 0.18, 'lowpass');
+  }
+  /** Called every frame while the cages move. */
+  creak(dt: number): void {
+    this.creakT -= dt;
+    if (this.creakT <= 0) {
+      this.creakT = 0.22;
+      this.burst(1200 + Math.random() * 600, 12, 0.05, 0.18);
+      this.burst(220, 3, 0.05, 0.2, 'bandpass');
+    }
+  }
+  mirrorBlip(): void {
+    this.tone(1320, 0.05, 0.12, 'square');
+    setTimeout(() => this.tone(1760, 0.05, 0.12, 'square'), 110);
+  }
+
   update(dt: number, suspicion: number, chase: boolean): void {
     if (!this.ctx) return;
+    if (this.alarm) {
+      this.klaxonT -= dt;
+      if (this.klaxonT <= 0) {
+        this.klaxonT = 1.1;
+        this.tone(440, 0.09, 0.5, 'sawtooth', 0.75);
+      }
+    }
     const t = this.ctx.currentTime;
     this.tension.gain.setTargetAtTime(Math.min(0.06, suspicion * 0.05) + (chase ? 0.03 : 0), t, 0.3);
     if (chase) {

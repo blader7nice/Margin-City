@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { CAMERA_SHOTS, MEZZ_SHOT, MEZZ_Y, type CameraShot } from '../sim/level';
+
+/** Inside the service duct: low, close, the cut-away section of the floor fills the frame. */
+const DUCT_SHOT: CameraShot = { id: 'duct', x0: 0, x1: 0, offset: [0, 0.85, 8.5], fov: 40, look: [2.2, 0.6, 0], threatFraming: 0 };
 import type { GuardState, LeonState } from '../sim/types';
 
 /**
@@ -69,6 +72,7 @@ export class CameraDirector {
   }
 
   private pickShot(l: LeonState): CameraShot {
+    if (l.y < -0.5) return DUCT_SHOT;
     if (l.y > MEZZ_Y - 0.6 && l.x > MEZZ_SHOT.x0 && l.x < MEZZ_SHOT.x1) return MEZZ_SHOT;
     return CAMERA_SHOTS.find((s) => l.x >= s.x0 && l.x < s.x1) ?? CAMERA_SHOTS[CAMERA_SHOTS.length - 1];
   }
@@ -95,7 +99,9 @@ export class CameraDirector {
     const want = Math.abs(dx) < 14 ? shot.threatFraming * alert : 0;
     this.threatMix = damp(this.threatMix, want, 1.5, dt);
     const lead = Math.max(-1.6, Math.min(1.6, leon.vx * 0.3));
-    const fx = leon.x + lead + dx * 0.5 * this.threatMix;
+    let fx = leon.x + lead + dx * 0.5 * this.threatMix;
+    // Room framing (puzzle diorama): pull the focus toward the room centre.
+    if (shot.lockX !== undefined) fx += (shot.lockX - fx) * (shot.lockWeight ?? 0.5);
     this.focus.x = damp(this.focus.x, fx, 3.0, dt);
     this.focus.y = this.focusY;
     this.focus.z = 0;
@@ -148,11 +154,13 @@ export class CameraDirector {
         fov = THREE.MathUtils.lerp(fov, 30, e);
         if (c.t >= c.dur) this.cine = null;
       } else if (c.kind === 'finale') {
-        const vault = new THREE.Vector3(39.2, 2.5, -3.4);
-        const p = vault.clone().add(new THREE.Vector3(-5.5, 1.2, 9.5 - Math.min(c.t, 6) * 0.4));
-        const e = ease(Math.min(1, c.t / 2));
+        // Inside the terminal room, looking back at the glass door: MM-01 stares through it.
+        const door = new THREE.Vector3(91.7, 1.75, -0.6);
+        const p = new THREE.Vector3(96.4 - Math.min(c.t, 6) * 0.12, 1.85, 4.2);
+        const e = ease(Math.min(1, c.t / 1.6));
         desiredPos.lerp(p, e);
-        desiredTarget.lerp(vault, e);
+        desiredTarget.lerp(door, e);
+        fov = THREE.MathUtils.lerp(fov, 34, e);
         this.letterbox = e;
       }
       if (c.kind === 'intro' && c.t >= c.dur) this.cine = null;

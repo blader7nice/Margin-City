@@ -43,7 +43,7 @@ const damp = (a: number, b: number, k: number, dt: number) => lerp(a, b, 1 - Mat
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 // ---------------------------------------------------------------- Scarf (verlet ribbon)
-class Scarf {
+export class Scarf {
   readonly mesh: THREE.Mesh;
   private pts: THREE.Vector3[] = [];
   private prev: THREE.Vector3[] = [];
@@ -245,7 +245,11 @@ export class LeonRig {
     const fill = new THREE.PointLight(0xffc89a, 2.6, 3.2, 2);
     fill.position.set(0, 1.4, 1.6);
     this.root.add(fill);
+    this.fill = fill;
+    this.rim = rim;
   }
+  private fill: THREE.PointLight;
+  private rim: THREE.PointLight;
 
   /** Scarf lives in world space (it must lag behind the body). Add it to the scene separately. */
   get scarfMesh(): THREE.Mesh {
@@ -254,6 +258,10 @@ export class LeonRig {
 
   update(l: LeonState, dt: number, t: number, threat: { x: number; y: number; active: boolean } | null): void {
     const speed = Math.abs(l.vx);
+    // Readability: the darker Leon's surroundings, the stronger his soft personal fill (never flat-lit).
+    const dark = 1 - Math.min(1, l.light * 1.4);
+    this.fill.intensity = 2.0 + dark * 3.2;
+    this.rim.intensity = 6 + dark * 4;
     const hiddenSpot = l.hideId ? HIDE_SPOTS.find((h) => h.id === l.hideId) : undefined;
 
     // Depth: step back into the hiding place.
@@ -341,6 +349,26 @@ export class LeonRig {
       elbow = [-1.9, -1.9];
       shoulderZ = 0.3;
       headTilt = 0.15;
+    }
+    if (l.pushing) {
+      // Lean into the heavy cart, arms forward, short steps.
+      shoulder = [-1.35, -1.25];
+      elbow = [-0.35, -0.4];
+      lean = 0.55;
+      shoulderZ = 0.12;
+      hipY -= 0.05;
+    }
+    if (l.slideT > 0) {
+      // Slide: hips low, lead leg forward, trailing knee bent, arms back for balance.
+      hipY = 0.42;
+      lean = -0.35;
+      thigh[0] = -1.35;
+      knee[0] = 0.25;
+      thigh[1] = -0.5;
+      knee[1] = 1.9;
+      shoulder = [0.6, 0.9];
+      elbow = [-0.6, -0.4];
+      shoulderZ = 0.35;
     }
     if (l.mode === 'caught') {
       shoulder = [-2.3, -2.1];
@@ -547,7 +575,9 @@ export class InspectorRig {
     this.head.add(tgt);
     this.eyeLight.target = tgt;
 
-    const rim = new THREE.PointLight(0x8fb0ff, 5, 3.2, 2);
+    // Strong cold rim + faint coat sheen: MM-01 must read as a silhouette even in deep shadow.
+    coatMat.emissive = new THREE.Color(0x0a0e16);
+    const rim = new THREE.PointLight(0x9db8ff, 10, 3.6, 2);
     rim.position.set(0, 2.3, -0.9);
     this.root.add(rim);
     this.coneMat = new THREE.ShaderMaterial({
@@ -571,8 +601,12 @@ export class InspectorRig {
     this.head.add(this.cone);
   }
 
-  update(g: GuardState, dt: number, t: number, camPos?: THREE.Vector3): void {
+  update(g: GuardState, dt: number, t: number, camPos?: THREE.Vector3, pose?: { x: number; y: number; z: number; visible: boolean } | null): void {
     this.root.position.set(g.x, g.y, GUARD_LANE_Z);
+    if (pose) {
+      this.root.position.set(pose.x, pose.y, pose.z);
+      this.root.visible = pose.visible;
+    } else this.root.visible = true;
     const camDist = camPos ? camPos.distanceTo(this.root.position) : 99;
     const coneFade = Math.min(1, Math.max(0, (camDist - 4) / 5));
     const chase = g.mode === 'chase';

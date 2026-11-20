@@ -1,46 +1,52 @@
 {
-  "date": "2026-11-19T18:13:42.622Z",
+  "date": "2026-11-20T15:23:23.079Z",
   "environment": "headless Chromium + SwiftShader (CPU rendering) — frame times NOT representative of GPU hardware",
   "build": {
-    "jsRawKB": 836.2,
-    "jsGzipKB": 248.5,
-    "jsBrotliKB": 212.1,
-    "htmlKB": 6.6,
+    "jsRawKB": 987.9,
+    "jsGzipKB": 293.7,
+    "jsBrotliKB": 248.4,
+    "htmlKB": 7,
     "texturesKB": 563.5,
-    "textureFiles": 15
+    "textureFiles": 15,
+    "modelsKB": 180.2,
+    "modelsGzipKB": 45.8
   },
   "coldLoad": {
-    "tti": 1966,
-    "firstFrame": 1966,
-    "assetsLoaded": 242,
-    "sceneBuilt": 367,
+    "tti": 2344,
+    "firstFrame": 2344,
+    "assetsLoaded": 297,
+    "sceneBuilt": 499,
     "transfer": {
-      "html": 2826,
-      "js": 254769,
-      "textures": 581520
+      "html": 2939,
+      "js": 301077,
+      "textures": 581520,
+      "models": 184860
     },
+    "glbMs": 108,
     "gpuTextureEstimateMB": 46.9,
     "webgl2": true,
     "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
-    "jsHeapUsedMB": 15.9,
-    "wallMs": 1972,
+    "jsHeapUsedMB": 23.9,
+    "wallMs": 2352,
     "errors": []
   },
   "warmLoad": {
-    "tti": 1937,
-    "firstFrame": 1937,
-    "assetsLoaded": 859,
-    "sceneBuilt": 960,
+    "tti": 2378,
+    "firstFrame": 2378,
+    "assetsLoaded": 997,
+    "sceneBuilt": 1127,
     "transfer": {
-      "html": 2826,
+      "html": 2939,
       "js": 0,
-      "textures": 0
+      "textures": 0,
+      "models": 0
     },
+    "glbMs": 113,
     "gpuTextureEstimateMB": 46.9,
     "webgl2": true,
     "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
-    "jsHeapUsedMB": 21.4,
-    "wallMs": 1940,
+    "jsHeapUsedMB": 38.2,
+    "wallMs": 2385,
     "errors": []
   },
   "benchLowQuality": {
@@ -48,28 +54,31 @@
     "webgl2": true,
     "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
     "viewport": "960x540@0.75",
-    "frames": 332,
-    "fps": 4.2,
+    "frames": 423,
+    "fps": 3.5,
     "frameMs": {
-      "avg": 236.83,
-      "p50": 233.3,
-      "p95": 283.3,
-      "p99": 350.1,
-      "max": 1566.71
+      "avg": 285.62,
+      "p50": 266.7,
+      "p95": 350,
+      "p99": 566.7,
+      "max": 1800
     },
-    "longFramesOver33ms": 332,
-    "drawCalls": 185,
-    "triangles": 16343,
-    "gpuTextures": 52,
-    "gpuGeometries": 646,
-    "jsHeapMB": 15.4,
-    "timeToInteractiveMs": 1876,
-    "firstFrameMs": 1876,
+    "longFramesOver33ms": 423,
+    "drawCalls": 176,
+    "triangles": 40731,
+    "gpuTextures": 77,
+    "gpuGeometries": 1078,
+    "jsHeapMB": 24.8,
+    "timeToInteractiveMs": 2076,
+    "firstFrameMs": 2075,
     "transferBytes": {
-      "js": 254769,
+      "js": 301077,
       "textures": 581520,
-      "html": 2826
+      "models": 184860,
+      "html": 2939
     },
+    "lightPool": 5,
+    "leonModel": "glb",
     "completedRoute": true,
     "errors": []
   }

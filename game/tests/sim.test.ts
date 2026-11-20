@@ -91,9 +91,19 @@ describe('Leon traversal (whole route is completable)', () => {
     expect(noisy).toBe(true);
   });
 
-  it('opens the vault at the end', () => {
+  it('the vault B-12 is sealed (find another way)', () => {
     const sim = quietSim({ x: 36, y: 0 });
-    run(sim, (s) => inp({ right: s.leon.x < 38.6, interact: s.leon.x >= 38.6 && Math.floor(s.time * 10) % 2 === 0 }), (s) => s.finished, 6);
+    let sealed = false;
+    run(
+      sim,
+      (s) => {
+        if (s.events.some((e) => e.type === 'sealed')) sealed = true;
+        return inp({ right: s.leon.x < 38.6, interact: s.leon.x >= 38.6 && Math.floor(s.time * 10) % 2 === 0 });
+      },
+      () => sealed,
+      6,
+    );
+    expect(sim.finished).toBe(false);
   });
 });
 

@@ -162,6 +162,22 @@ export class TechView {
         this.seg(n.x + Math.cos(a0) * rr, n.y + Math.sin(a0) * rr, n.x + Math.cos(a1) * rr, n.y + Math.sin(a1) * rr, col);
       }
     }
+    // Moving / state-dependent solids (cages, cart, gates, hatch, terminal door): outlined live.
+    const dynCol = new THREE.Color(0xff9a3c);
+    for (const sd of sim.solidsNow) {
+      if (!['cage', 'cart', 'gate', 'hatch', 'door'].includes(sd.kind)) continue;
+      this.seg(sd.x0, sd.y0, sd.x1, sd.y0, dynCol, 0.7);
+      this.seg(sd.x1, sd.y0, sd.x1, sd.y1, dynCol, 0.7);
+      this.seg(sd.x1, sd.y1, sd.x0, sd.y1, dynCol, 0.7);
+      this.seg(sd.x0, sd.y1, sd.x0, sd.y0, dynCol, 0.7);
+    }
+    // Chase: MIRROR's predicted position of Leon.
+    if (sim.chase.active) {
+      const pr = sim.chase.predicted;
+      const py = pr.lane === 'catwalk' ? 4.4 : pr.lane === 'tunnel' ? -1.35 : 0;
+      this.seg(pr.x - 0.35, py + 0.1, pr.x + 0.35, py + 0.1, cyan, 0.7);
+      this.seg(pr.x, py + 0.1, pr.x, py + 2.0, cyan, 0.7);
+    }
     const geo = this.lines.geometry;
     geo.setDrawRange(0, this.segN * 2);
     (geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;

@@ -1,11 +1,17 @@
 import * as THREE from 'three';
 import { Simulation, SIM_DT } from './sim/world';
-import { HIDE_SPOTS, VAULT, FORECAST } from './sim/level';
+import { HIDE_SPOTS, VAULT, FORECAST, PUZZLE, LEDGE_Y } from './sim/level';
 import type { GuardMode, InputState } from './sim/types';
 import { NO_INPUT } from './sim/types';
 import { Assets, ALL_TEXTURES } from './render/assets';
 import { buildHall } from './render/hall';
+import { buildArchive } from './render/archive';
+import { LightPool } from './render/lightPool';
+import { OcclusionFader } from './render/occlusion';
+import { laneOf } from './sim/chase';
+import { leonInRightCage } from './sim/puzzle';
 import { InspectorRig, LeonRig } from './render/characters';
+import { GltfLeonRig, loadGLB } from './render/gltfCharacter';
 import { CameraDirector } from './render/camera';
 import { TechView } from './render/techView';
 import { Post } from './render/post';
@@ -29,6 +35,8 @@ const spawnParam = params.get('spawn')?.split(',').map(Number);
 const freeze = params.get('freeze') === '1';
 /** Photo mode for screenshots: cam=px,py,pz,tx,ty,tz[,fov] */
 const camParam = params.get('cam')?.split(',').map(Number);
+/** Photo mode that follows Leon: camFollow=dx,dy,dz,fov */
+const camFollow = params.get('camFollow')?.split(',').map(Number);
 
 function localStorageGet(k: string): string | null {
   try {
@@ -91,23 +99,62 @@ const metrics = new FrameMetrics(600);
 const sim = new Simulation({
   skipReveal: params.get('noreveal') === '1' || bench,
   godMode: bench || params.get('god') === '1',
+  startChase: params.get('chase') === '1' || hash === 'chase',
+  puzzleSolved: params.get('solved') === '1',
   guardStart: params.get('gx') ? { x: Number(params.get('gx')), facing: (Number(params.get('gf') ?? -1) > 0 ? 1 : -1) as 1 | -1, patrolIndex: 0 } : undefined,
   spawn: spawnParam && spawnParam.length === 2 ? { x: spawnParam[0], y: spawnParam[1] } : undefined,
 });
-const leonRig = new LeonRig();
+const proceduralLeon = new LeonRig();
+let gltfLeon: GltfLeonRig | null = null;
+/** Which Leon is shown: the skinned GLB from the Blender pipeline (default) or the procedural primitive rig. */
+let useGltf = params.get('leon') !== 'procedural';
+let leonRig: { root: THREE.Object3D; scarfMesh: THREE.Mesh; snap(): void; update: LeonRig['update'] } = proceduralLeon;
+function applyLeonModel(): void {
+  const g = useGltf && gltfLeon ? gltfLeon : null;
+  leonRig = g ?? proceduralLeon;
+  proceduralLeon.root.visible = !g;
+  proceduralLeon.scarfMesh.visible = !g;
+  if (gltfLeon) {
+    gltfLeon.root.visible = !!g;
+    gltfLeon.scarfMesh.visible = !!g;
+  }
+  leonRig.snap();
+}
 const guardRig = new InspectorRig(Q.eyeShadow);
 const tech = new TechView();
 let hall: ReturnType<typeof buildHall>;
+let archive: ReturnType<typeof buildArchive>;
+const lightPool = new LightPool(scene, Q.name === 'low' ? 5 : 8);
+const fader = new OcclusionFader();
 let started = false;
 let finishedShown = false;
 const timings: Record<string, number> = {};
 
 async function boot(): Promise<void> {
   const loadbar = $('loadbar').firstElementChild as HTMLElement;
+  const glbT0 = performance.now();
+  const glbPromise = loadGLB('models/leon.glb')
+    .then((g) => {
+      timings.glbMs = performance.now() - glbT0;
+      return g;
+    })
+    .catch((e) => {
+      console.warn('GLB character failed to load, using procedural rig', e);
+      return null;
+    });
   await assets.load(ALL_TEXTURES, Math.min(8, renderer.capabilities.getMaxAnisotropy()), (p) => (loadbar.style.width = `${Math.round(p * 100)}%`));
   timings.assetsLoaded = performance.now();
-  hall = buildHall(assets, Q);
-  scene.add(hall.root, leonRig.root, leonRig.scarfMesh, guardRig.root);
+  hall = buildHall(assets, Q, lightPool);
+  archive = buildArchive(assets, lightPool);
+  scene.add(hall.root, archive.root, proceduralLeon.root, proceduralLeon.scarfMesh, guardRig.root);
+  const glb = await glbPromise;
+  if (glb) {
+    gltfLeon = new GltfLeonRig(glb);
+    scene.add(gltfLeon.root, gltfLeon.scarfMesh);
+    timings.glbTriangles = gltfLeon.stats.triangles;
+  }
+  applyLeonModel();
+  for (const o of hall.occluders) fader.register(o);
   // Reflections from a tiny procedural environment (windows + lamps).
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(hall.envScene, 0.03).texture;
@@ -181,6 +228,15 @@ function subtitle(who: string, text: string, dur = 3): void {
   el.style.opacity = '1';
   subtitleT = dur;
 }
+let hintT = 0;
+let hintText = '';
+function mirrorLine(text: string, dur: number): void {
+  const el = $('mirror');
+  el.textContent = `MIRROR · ${text}`;
+  el.style.opacity = '1';
+  mirrorT = dur;
+}
+let mirrorT = 0;
 function toast(text: string): void {
   const el = $('toast');
   el.textContent = text;
@@ -255,6 +311,71 @@ function handleEvents(): void {
         break;
       case 'noise':
         break;
+      case 'sealed':
+        subtitle('LEON', 'Zaplombowane… MIRROR zamknął to od środka. Musi być inna droga.', 3.6);
+        break;
+      case 'lever':
+        audio.clank();
+        if (e.result === 'tooLight') {
+          subtitle(
+            'LEON',
+            sim.puzzle.tooLightCount > 1 ? 'Ten wózek z aktami… jest cięższy ode mnie.' : 'Za lekko. Po drugiej stronie musi być coś cięższego.',
+            3.4,
+          );
+        }
+        break;
+      case 'cartLocked':
+        audio.clank();
+        subtitle('LEON', 'Jest. Teraz druga klatka.', 2.4);
+        break;
+      case 'cageStop':
+        audio.slam();
+        if (e.cage === 'R') subtitle('LEON', 'Trzecia droga.', 2.2);
+        break;
+      case 'push':
+        if (Math.random() < 0.08) audio.rumble();
+        break;
+      case 'slide':
+        audio.whoosh();
+        break;
+      case 'alarm':
+        audio.setAlarm(true);
+        audio.sting('chase');
+        director.addShake(0.5);
+        subtitle('MM-01', 'Breach in archive wing B. Engaging.', 3);
+        setObjective('Uciekaj do <b>pokoju terminala B-12</b>');
+        break;
+      case 'mmEnter':
+        audio.slam();
+        audio.sting('suspicious');
+        director.addShake(0.25);
+        break;
+      case 'gateWarn':
+        audio.mirrorBlip();
+        mirrorLine(`PROGNOZA TRASY: ${e.lane === 'catwalk' ? 'GÓRNA' : 'DOLNA'} ${Math.round(e.confidence * 100)}% → ZAMYKANIE ${e.gate}`, 3.2);
+        hintT = 3.2;
+        hintText = e.lane === 'catwalk' ? 'Zeskocz z pomostu: <kbd>S</kbd> + <kbd>Spacja</kbd>' : 'Wespnij się na regał (<kbd>Spacja</kbd>) albo ślizg pod bramą: <kbd>Ctrl</kbd> w biegu';
+        break;
+      case 'gateClosed':
+        audio.slam();
+        director.addShake(0.2);
+        break;
+      case 'intercept':
+        audio.mirrorBlip();
+        mirrorLine(e.kind === 'passage' ? 'PRZECHWYCENIE: KORYTARZ SERWISOWY · DRZWI 3' : 'PRZEWIDYWANE ZEJŚCIE: KONIEC POMOSTU', 3);
+        break;
+      case 'mmStairs':
+        audio.clank();
+        break;
+      case 'subjectLost':
+        audio.sting('calm');
+        mirrorLine('UTRATA CELU — BRAK CZUJNIKÓW W KANALE', 3);
+        break;
+      case 'doorClosed':
+        audio.slam();
+        audio.setAlarm(false);
+        setTimeout(() => subtitle('MM-01', 'Archive breach confirmed. Subject identity pending.', 4.5), 1500);
+        break;
       default:
         break;
     }
@@ -273,10 +394,11 @@ function autopilot(): InputState {
   else stuckT = 0;
   lastX = l.x;
   if (stuckT > 0.08) s.jump = Math.floor(sim.time * 8) % 2 === 0;
-  if (l.x > VAULT.x - 0.4) {
-    s.right = false;
-    s.interact = Math.floor(sim.time * 4) % 2 === 0;
+  if (!sim.chase.active && l.x > 23.6 && l.grounded) {
+    // Benchmark covers rendering of both areas; the puzzle itself is verified by tests.
+    sim.debugStartChase(46.4, 0);
   }
+  if (sim.chase.active) s.run = true;
   return s;
 }
 
@@ -297,6 +419,11 @@ function loop(now: number): void {
     techMode = !techMode;
     debugOn = techMode || debugOn;
     applyView();
+  }
+  if (input.wasPressed('KeyG') && gltfLeon) {
+    useGltf = !useGltf;
+    applyLeonModel();
+    toast(useGltf ? 'LEON: MODEL GLB (BLENDER, SKINNING)' : 'LEON: RIG PROCEDURALNY');
   }
   if (input.wasPressed('F1') || input.wasPressed('Backquote')) {
     debugOn = !debugOn;
@@ -340,12 +467,21 @@ function updateVisuals(dt: number, t: number): void {
   const g = sim.guard;
   const hiddenIn = l.mode === 'hidden' || l.mode === 'enterHide' ? l.hideId : null;
   hall.update(t, dt, { leonX: l.x, leonY: l.y, camX: director.camera.position.x, camZ: director.camera.position.z, guardMode: g.mode, hiddenIn });
-  guardRig.update(g, dt, t, director.camera.position);
-  const threatActive = g.mode !== 'patrol' && Math.abs(g.x - l.x) < 12;
+  archive.update(sim, t, dt);
+  guardRig.update(g, dt, t, director.camera.position, archive.mmPose(sim));
+  const threatActive = (g.mode !== 'patrol' && Math.abs(g.x - l.x) < 12) || (sim.chase.active && sim.chase.mode !== 'inactive' && sim.chase.mode !== 'passage');
   leonRig.update(l, dt, t, { x: g.x, y: g.y, active: threatActive });
   const head = guardRig.head.getWorldPosition(new THREE.Vector3());
   const fwd = guardRig.head.getWorldDirection(new THREE.Vector3());
   director.update(dt, t, l, g, head, fwd, window.innerWidth / window.innerHeight);
+  if (camFollow && camFollow.length >= 3) {
+    director.camera.position.set(l.x + camFollow[0], l.y + camFollow[1], camFollow[2]);
+    director.camera.lookAt(l.x, l.y + 0.9, 0);
+    if (camFollow[3]) {
+      director.camera.fov = camFollow[3];
+      director.camera.updateProjectionMatrix();
+    }
+  }
   if (camParam && camParam.length >= 6) {
     director.camera.position.set(camParam[0], camParam[1], camParam[2]);
     director.camera.lookAt(camParam[3], camParam[4], camParam[5]);
@@ -355,8 +491,12 @@ function updateVisuals(dt: number, t: number): void {
     }
   }
   tech.update(sim);
+  lightPool.update(new THREE.Vector3(l.x, l.y + 1.5, 0), t);
+  fader.update(director.camera, [new THREE.Vector3(l.x, l.y + l.height * 0.85, 0), new THREE.Vector3(l.x, l.y + l.height * 0.4, 0)], dt);
+  if (sim.puzzle.moving !== 0) audio.creak(dt);
   post.setFocus(director.camera.position.distanceTo(new THREE.Vector3(l.x, l.y + 1, 0)));
-  post.setTension(Math.min(1, g.suspicion), l.mode === 'caught' ? Math.min(1, sim.caughtT / 0.8) : 0);
+  const chaseTension = sim.chase.active && !sim.chase.doorClosed && sim.chase.mode !== 'inactive' ? Math.max(0, 1 - Math.abs(g.x - l.x) / 10) * 0.8 : 0;
+  post.setTension(Math.min(1, Math.max(g.suspicion * (sim.chase.active ? 0 : 1), chaseTension)), l.mode === 'caught' ? Math.min(1, sim.caughtT / 0.8) : 0);
   // MM-01 footsteps audio
   if (g.speed > 0.05) {
     guardStepAcc += dt * (g.mode === 'chase' ? 3.6 : 1.5);
@@ -380,6 +520,7 @@ function renderFrame(dt: number): void {
 
 // ------------------------------------------------------------------ HUD per frame
 let ftDrawT = 0;
+let corridorObjective = false;
 function updateHud(dt: number): void {
   const l = sim.leon;
   const g = sim.guard;
@@ -395,7 +536,14 @@ function updateHud(dt: number): void {
   if (started && l.mode === 'normal' && l.grounded && !director.inCinematic) {
     const spot = HIDE_SPOTS.find((h) => Math.abs(h.x - l.x) <= h.reach && Math.abs(h.y - l.y) < 0.4);
     if (spot) prompt = `<kbd>E</kbd> schowaj się — ${spot.label}${spot.forecast ? ' · <span style="color:var(--cyan)">MIRROR przewiduje to miejsce</span>' : ''}`;
-    else if (Math.abs(VAULT.x - l.x) <= VAULT.reach) prompt = '<kbd>E</kbd> otwórz Archiwum B-12';
+    else if (Math.abs(VAULT.x - l.x) <= VAULT.reach && l.y < 0.5) prompt = '<kbd>E</kbd> sprawdź sejf B-12';
+    else if (leonInRightCage(sim.puzzle, l) && !sim.puzzle.solved) prompt = '<kbd>E</kbd> dźwignia hamulca windy';
+    else if (!sim.puzzle.alarm && Math.abs(l.x - PUZZLE.panel.x) <= PUZZLE.panel.reach && Math.abs(l.y - LEDGE_Y) < 0.1)
+      prompt = '<kbd>E</kbd> awaryjne otwarcie włazu · <span style="color:#ff7a5a">URUCHOMI ALARM</span>';
+    else if (l.pushing) prompt = 'Pchasz wózek z aktami (240 kg)';
+    else if (l.x > 80.0 && l.x < 81.2 && l.y > -0.2 && l.y < 0.3) prompt = '<kbd>S</kbd> + <kbd>Spacja</kbd> zejdź do kanału serwisowego';
+    else if (laneOf(l) === 'tunnel') prompt = 'Kanał serwisowy — czołgasz się';
+    else if (hintT > 0) prompt = hintText;
     else if (l.x > -17.6 && l.x < -16.3 && !l.crouching) prompt = '<kbd>Ctrl</kbd> przeczołgaj się pod zaciętą kratą';
     else if (l.x > FORECAST.corridor.x0 && l.x < FORECAST.corridor.x0 + 1.5) prompt = '<span style="color:var(--cyan)">Cyjanowe światła: trasa przewidziana przez MIRROR</span>';
   } else if (l.mode === 'hidden') prompt = '<kbd>E</kbd> wyjdź z kryjówki';
@@ -405,6 +553,13 @@ function updateHud(dt: number): void {
 
   subtitleT -= dt;
   if (subtitleT <= 0) $('subtitle').style.opacity = '0';
+  hintT -= dt;
+  mirrorT -= dt;
+  if (mirrorT <= 0) $('mirror').style.opacity = '0';
+  if (!sim.chase.active && !sim.puzzle.solved && l.x > 24.5 && !corridorObjective) {
+    corridorObjective = true;
+    setObjective('Dostań się do <b>Archiwum B-12</b>');
+  }
   toastT -= dt;
   if (toastT <= 0) $('toast').style.opacity = '0';
   $('objective').style.opacity = director.inCinematic ? '0' : '1';
@@ -413,7 +568,7 @@ function updateHud(dt: number): void {
     finishedShown = true;
     setTimeout(() => {
       $('end').style.display = 'flex';
-      $('endStats').innerHTML = `Czas: ${Math.round(sim.time)} s · złapania: ${sim.catches}<br>To jest koniec prototypu wizualno-rozgrywkowego.`;
+      $('endStats').innerHTML = `Czas: ${Math.round(sim.time)} s · złapania: ${sim.catches}<br>Terminal B-12 i Market Replay — w następnym milestone.`;
       $('againBtn').onclick = () => location.reload();
       $('techBtn').onclick = () => {
         $('end').style.display = 'none';
@@ -421,7 +576,7 @@ function updateHud(dt: number): void {
         debugOn = true;
         applyView();
       };
-    }, 2600);
+    }, 6500);
   }
 
   if (debugOn) {
@@ -477,7 +632,9 @@ function finishBench(): void {
     jsHeapMB: mem ? +(mem.usedJSHeapSize / 1048576).toFixed(1) : null,
     timeToInteractiveMs: Math.round(timings.interactive),
     firstFrameMs: Math.round(timings.firstFrame),
-    transferBytes: { js: sum((r) => r.name.endsWith('.js')), textures: sum((r) => r.name.includes('/tex/')), html: nav?.transferSize ?? 0 },
+    transferBytes: { js: sum((r) => r.name.endsWith('.js')), textures: sum((r) => r.name.includes('/tex/')), models: sum((r) => r.name.includes('/models/')), html: nav?.transferSize ?? 0 },
+    lightPool: lightPool.lights.length,
+    leonModel: useGltf && gltfLeon ? 'glb' : 'procedural',
     completedRoute: sim.finished,
   };
   (window as unknown as Record<string, unknown>).__bench = report;

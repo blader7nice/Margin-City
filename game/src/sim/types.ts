@@ -10,6 +10,14 @@ export interface AABB {
 
 export type SolidKind =
   | 'floor'
+  | 'cage'
+  | 'cart'
+  | 'gate'
+  | 'door'
+  | 'grate'
+  | 'catwalk'
+  | 'stack'
+  | 'hatch'
   | 'wall'
   | 'block'
   | 'cabinet'
@@ -28,6 +36,8 @@ export interface Solid extends AABB {
   occludes?: boolean;
   /** Has no physical collision (pure sight blocker, e.g. a parapet seen in projection). */
   noCollide?: boolean;
+  /** Collides only with pushable objects (e.g. a low bumper that keeps the cart on its gallery). */
+  cartOnly?: boolean;
 }
 
 export interface HideSpot {
@@ -114,6 +124,10 @@ export interface LeonState {
   light: number;
   /** 0..1 how exposed Leon currently is to MM-01 (for UI/debug only). */
   exposure: number;
+  /** Pushing a heavy object this frame (animation). */
+  pushing: boolean;
+  /** Remaining slide time (run + crouch). */
+  slideT: number;
 }
 
 export type GuardMode = 'patrol' | 'suspicious' | 'chase' | 'search' | 'return';
@@ -161,7 +175,24 @@ export type SimEvent =
   | { type: 'hide'; id: string }
   | { type: 'unhide'; id: string }
   | { type: 'reveal' }
-  | { type: 'finished' };
+  | { type: 'finished' }
+  | { type: 'slide' }
+  | { type: 'push'; x: number }
+  | { type: 'sealed' }
+  | { type: 'lever'; result: 'moving' | 'tooLight' | 'released' }
+  | { type: 'cartLocked' }
+  | { type: 'cageStop'; cage: 'L' | 'R' }
+  | { type: 'alarm' }
+  | { type: 'mmEnter'; x: number }
+  | { type: 'gateWarn'; gate: string; lane: Lane; confidence: number }
+  | { type: 'gateClosed'; gate: string }
+  | { type: 'gateOpen'; gate: string }
+  | { type: 'intercept'; kind: 'passage' | 'landing'; x: number }
+  | { type: 'mmStairs'; to: Lane }
+  | { type: 'subjectLost' }
+  | { type: 'doorClosed' };
+
+export type Lane = 'floor' | 'catwalk' | 'tunnel';
 
 export interface NoiseEvent {
   x: number;

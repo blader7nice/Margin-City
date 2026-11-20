@@ -40,6 +40,7 @@
       #prompt kbd, .keys kbd { font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid rgba(255,255,255,0.35); border-bottom-width: 2px; padding: 1px 6px; border-radius: 3px; margin: 0 2px; }
       #subtitle { bottom: 15.5vh; left: 50%; transform: translateX(-50%); font-size: clamp(15px, 2vw, 21px); text-align: center; color: #f3ead8; text-shadow: 0 2px 8px #000; opacity: 0; transition: opacity 0.4s; max-width: 80vw; }
       #subtitle .who { color: var(--cyan); font-family: ui-monospace, monospace; font-size: 0.8em; letter-spacing: 0.12em; }
+      #mirror { top: 9vh; left: 50%; transform: translateX(-50%); font-family: ui-monospace, 'Courier New', monospace; font-size: clamp(12px, 1.5vw, 15px); letter-spacing: 0.08em; color: var(--cyan); text-shadow: 0 0 12px rgba(80,230,255,0.6); background: rgba(0,10,14,0.55); border: 1px solid rgba(111,243,255,0.3); padding: 6px 14px; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
       #toast { top: 22px; right: 26px; font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: 0.12em; color: #b8f3c8; opacity: 0; transition: opacity 0.5s; }
       #viewTag { bottom: 16px; left: 18px; font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
       #debug { top: 12px; right: 12px; width: 300px; font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.45; background: rgba(0,0,0,0.72); border: 1px solid rgba(255,255,255,0.12); padding: 10px 12px; color: #d8e2ea; display: none; white-space: pre; }
@@ -75,6 +76,7 @@
     <div id="toast" class="ui"></div>
     <div id="subtitle" class="ui"></div>
     <div id="prompt" class="ui"></div>
+    <div id="mirror" class="ui"></div>
     <div id="viewTag" class="ui"></div>
     <div id="debug" class="ui"><span id="debugText"></span><canvas id="ftGraph" width="300" height="46"></canvas></div>
 
@@ -86,7 +88,7 @@
         <div class="keys">
           <kbd>A</kbd><kbd>D</kbd> ruch &nbsp; <kbd>Shift</kbd> bieg (głośno) &nbsp; <kbd>Spacja</kbd> skok / wspinaczka<br />
           <kbd>Ctrl</kbd>/<kbd>C</kbd> kucanie &nbsp; <kbd>E</kbd> kryjówka / interakcja &nbsp; <kbd>S</kbd>+<kbd>Spacja</kbd> zeskok<br />
-          <kbd>T</kbd> warstwa techniczna &nbsp; <kbd>F1</kbd>/<kbd>`</kbd> debug &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> jakość (przeładuje)
+          <kbd>T</kbd> warstwa techniczna &nbsp; <kbd>G</kbd> model Leona (GLB / proceduralny) &nbsp; <kbd>F1</kbd> debug &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> jakość
         </div>
         <div class="row" id="qualityRow">
           <button data-q="low">Niska</button>

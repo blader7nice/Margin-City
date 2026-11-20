@@ -20,6 +20,7 @@ const gz = (f) => zlib.gzipSync(fs.readFileSync(f), { level: 9 }).length;
 const br = (f) => zlib.brotliCompressSync(fs.readFileSync(f)).length;
 const js = files.filter((f) => f.endsWith('.js'));
 const tex = files.filter((f) => f.includes(`${path.sep}tex${path.sep}`));
+const models = files.filter((f) => f.includes(`${path.sep}models${path.sep}`));
 const build = {
   jsRawKB: +(js.reduce((a, f) => a + size(f), 0) / 1024).toFixed(1),
   jsGzipKB: +(js.reduce((a, f) => a + gz(f), 0) / 1024).toFixed(1),
@@ -27,6 +28,8 @@ const build = {
   htmlKB: +(size(path.join(dist, 'index.html')) / 1024).toFixed(1),
   texturesKB: +(tex.reduce((a, f) => a + size(f), 0) / 1024).toFixed(1),
   textureFiles: tex.length,
+  modelsKB: +(models.reduce((a, f) => a + size(f), 0) / 1024).toFixed(1),
+  modelsGzipKB: +(models.reduce((a, f) => a + gz(f), 0) / 1024).toFixed(1),
 };
 
 const srv = await serve(dist);
@@ -50,7 +53,8 @@ async function load(page, url) {
       firstFrame: Math.round(window.__mc.timings.firstFrame),
       assetsLoaded: Math.round(window.__mc.timings.assetsLoaded),
       sceneBuilt: Math.round(window.__mc.timings.sceneBuilt),
-      transfer: { html: nav.transferSize, js: sum((x) => x.name.endsWith('.js')), textures: sum((x) => x.name.includes('/tex/')) },
+      transfer: { html: nav.transferSize, js: sum((x) => x.name.endsWith('.js')), textures: sum((x) => x.name.includes('/tex/')), models: sum((x) => x.name.includes('/models/')) },
+      glbMs: Math.round(window.__mc.timings.glbMs ?? -1),
       gpuTextureEstimateMB: window.__mc.gpuTextureEstimateMB,
       webgl2: window.__mc.isWebGL2,
       gpu: (() => { const gl = window.__mc.renderer.getContext(); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'n/a'; })(),

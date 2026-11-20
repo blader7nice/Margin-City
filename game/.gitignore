@@ -1,3 +1,4 @@
 node_modules/
 dist/
 measurements/*.png
+tools/blender/out/

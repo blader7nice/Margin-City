@@ -10,13 +10,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "textures": "python3 -I tools/gen_textures.py public/tex",
-    "measure": "node tools/measure.mjs"
+    "measure": "node tools/measure.mjs",
+    "model:leon": "python3 tools/blender/make_leon.py tools/blender/out/leon_raw.glb && gltf-transform optimize tools/blender/out/leon_raw.glb public/models/leon.glb --compress meshopt --texture-compress false --simplify false"
   },
   "dependencies": {
     "postprocessing": "^6.39.6",
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
     "@types/three": "^0.187.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
