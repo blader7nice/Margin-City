@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Simulation, SIM_DT } from './sim/world';
-import { HIDE_SPOTS, VAULT, FORECAST, PUZZLE, LEDGE_Y, TERMINAL } from './sim/level';
+import { HIDE_SPOTS, VAULT, FORECAST, PUZZLE, LEDGE_Y, TERMINAL, CHASE } from './sim/level';
+import { Telemetry, applyTuning, type TelemetryReport } from './sim/telemetry';
 import type { GuardMode, InputState } from './sim/types';
 import { NO_INPUT } from './sim/types';
 import { Assets, ALL_TEXTURES } from './render/assets';
@@ -103,6 +104,27 @@ const assets = new Assets();
 const input = new Input();
 const audio = new Audio();
 const metrics = new FrameMetrics(600);
+// Chase playtest knobs (?warn=0.8&mmspeed=4.8&gap=3&stepout=0.9&respawn=13&closed=6) — clamped, recorded in the report.
+const tuning = applyTuning(params, CHASE as unknown as Record<string, unknown>);
+const telemetry = new Telemetry({ build: 'M03', quality: Q.name, tuning });
+const PLAYTEST_KEY = 'mc.playtests.v1';
+function storedPlaytests(): TelemetryReport[] {
+  try {
+    return JSON.parse(localStorage.getItem(PLAYTEST_KEY) ?? '[]') as TelemetryReport[];
+  } catch {
+    return [];
+  }
+}
+function savePlaytest(): void {
+  try {
+    const all = storedPlaytests().filter((r) => r.startedAt !== telemetry.report.startedAt);
+    all.push(telemetry.report);
+    localStorage.setItem(PLAYTEST_KEY, JSON.stringify(all.slice(-10)));
+  } catch {
+    /* private mode / quota: the report can still be copied or downloaded */
+  }
+}
+let markerCount = -1;
 const sim = new Simulation({
   skipReveal: params.get('noreveal') === '1' || bench,
   godMode: bench || params.get('god') === '1',
@@ -261,6 +283,7 @@ const terminal = new Terminal({
   },
   onDecision: (d) => {
     (window as unknown as Record<string, unknown>).__replay = d;
+    telemetry.setTerminalDecision(d);
   },
 });
 function openTerminal(): void {
@@ -503,6 +526,7 @@ function loop(now: number): void {
     while (acc >= SIM_DT && steps < 12) {
       // Benchmark runs with MM-01 perception disabled (godMode) so the route is deterministic.
       sim.step(inp);
+      if (!bench) telemetry.step(sim, SIM_DT);
       handleEvents();
       acc -= SIM_DT;
       simTime += SIM_DT;
@@ -557,6 +581,13 @@ function updateVisuals(dt: number, t: number): void {
     }
   }
   tech.update(sim);
+  if (techMode && markerCount !== telemetry.report.catches.length) {
+    markerCount = telemetry.report.catches.length;
+    const old = storedPlaytests()
+      .filter((r) => r.startedAt !== telemetry.report.startedAt)
+      .flatMap((r) => r.catches.map((c) => ({ x: c.x, y: c.y, old: true })));
+    tech.setMarkers([...old, ...telemetry.report.catches.map((c) => ({ x: c.x, y: c.y }))]);
+  }
   lightPool.update(new THREE.Vector3(l.x, l.y + 1.5, 0), t);
   fader.update(director.camera, [new THREE.Vector3(l.x, l.y + l.height * 0.85, 0), new THREE.Vector3(l.x, l.y + l.height * 0.4, 0)], dt);
   if (sim.puzzle.moving !== 0) audio.creak(dt);
@@ -638,6 +669,8 @@ function updateHud(dt: number): void {
     setTimeout(() => {
       $('end').style.display = 'flex';
       $('endStats').innerHTML = `Czas: ${Math.round(sim.time)} s · złapania: ${sim.catches}<br>The Last Shift — koniec rozdziału. Następnie: <b>The Paper District</b>.`;
+      savePlaytest();
+      showPlaytestPanel();
       $('againBtn').onclick = () => location.reload();
       $('techBtn').onclick = () => {
         $('end').style.display = 'none';
@@ -667,6 +700,7 @@ function updateHud(dt: number): void {
         `MM-01 ${modeNames[g.mode]}  zasięg ${g.sight.range.toFixed(1)}m`,
         `podejrzenie ${(Math.min(1, g.suspicion) * 100).toFixed(0)}%  ${g.sight.visible ? 'WIDZI' : 'nie widzi'}`,
         `ostatnia znana ${g.lastKnown ? g.lastKnown.x.toFixed(1) : '—'}  checkpoint ${sim.checkpoint.id}`,
+        `playtest: złapania ${telemetry.report.catches.length}  tuning ${Object.keys(tuning).length ? JSON.stringify(tuning) : 'domyślny'}`,
       ];
       $('debugText').textContent = lines.join('\n');
       metrics.draw($<HTMLCanvasElement>('ftGraph'));
@@ -725,3 +759,64 @@ boot().catch((e) => {
   console.error(e);
   $('startBtn').textContent = 'Błąd ładowania — szczegóły w konsoli';
 });
+
+// ------------------------------------------------------------------ playtest panel (end card)
+const RATING_QUESTIONS: [string, string][] = [
+  ['tension', 'Napięcie w pościgu'],
+  ['fair', 'Uczciwość złapań (czy wiedziałeś, co poszło źle?)'],
+  ['mirror', 'Czytelność ostrzeżeń MIRROR'],
+  ['puzzle', 'Zagadka „Waga archiwisty”'],
+  ['terminal', 'Terminal B-12 / Market Replay'],
+  ['characters', 'Postacie (Leon, MM-01)'],
+];
+function showPlaytestPanel(): void {
+  const host = $('playtest');
+  host.style.display = 'block';
+  const rows = RATING_QUESTIONS.map(
+    ([k, label]) =>
+      `<div class="pt-q"><span>${label}</span><span class="pt-r" data-q="${k}">${[1, 2, 3, 4, 5].map((v) => `<button data-v="${v}">${v}</button>`).join('')}</span></div>`,
+  ).join('');
+  host.innerHTML = `<div class="pt-sum">${telemetry.summary().replace(/\n/g, '<br>')}</div>${rows}
+    <textarea id="ptNotes" placeholder="Uwagi (opcjonalnie): co frustrowało, co zaskoczyło?" rows="2"></textarea>
+    <div class="row"><button id="ptCopy">Kopiuj raport</button><button id="ptSave">Pobierz JSON</button></div>
+    <div id="ptMsg" class="pt-msg">Raport zostaje lokalnie w tej przeglądarce (ostatnie 10 sesji). Nic nie jest wysyłane.</div>`;
+  host.querySelectorAll<HTMLElement>('.pt-r').forEach((row) => {
+    row.querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+      b.onclick = () => {
+        telemetry.rate(row.dataset.q!, Number(b.dataset.v));
+        row.querySelectorAll('button').forEach((x) => x.classList.toggle('sel', Number((x as HTMLButtonElement).dataset.v) <= Number(b.dataset.v)));
+        savePlaytest();
+      };
+    });
+  });
+  const notes = $<HTMLTextAreaElement>('ptNotes');
+  notes.oninput = () => {
+    telemetry.setNotes(notes.value);
+    savePlaytest();
+  };
+  const text = () => `MARGIN CITY playtest ${telemetry.report.startedAt}\n${telemetry.summary()}\n\n${telemetry.toJSON()}`;
+  $('ptCopy').onclick = async () => {
+    const msg = $('ptMsg');
+    try {
+      await navigator.clipboard.writeText(text());
+      msg.textContent = 'Skopiowano do schowka.';
+    } catch {
+      // Fallback for contexts without the async clipboard API.
+      const ta = document.createElement('textarea');
+      ta.value = text();
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      msg.textContent = ok ? 'Skopiowano do schowka.' : 'Nie udało się skopiować — użyj „Pobierz JSON”.';
+    }
+  };
+  $('ptSave').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([telemetry.toJSON()], { type: 'application/json' }));
+    a.download = `margin-city-playtest-${telemetry.report.startedAt.replace(/[:.]/g, '-')}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+}
+(window as unknown as Record<string, unknown>).__telemetry = telemetry;

@@ -94,6 +94,24 @@ export class TechView {
     this.lines.frustumCulled = false;
     this.lines.renderOrder = 20;
     this.debug.add(this.lines);
+    this.debug.add(this.markers);
+  }
+
+  /** Playtest death markers: red crosses where Leon was caught (this session = bright, earlier sessions = dim). */
+  readonly markers = new THREE.Group();
+  setMarkers(points: { x: number; y: number; old?: boolean }[]): void {
+    for (const c of [...this.markers.children]) {
+      this.markers.remove(c);
+      (c as THREE.Line).geometry.dispose();
+    }
+    for (const p of points) {
+      const s = 0.35;
+      const g = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(p.x - s, p.y + 0.9 - s, 0.4), new THREE.Vector3(p.x + s, p.y + 0.9 + s, 0.4),
+        new THREE.Vector3(p.x - s, p.y + 0.9 + s, 0.4), new THREE.Vector3(p.x + s, p.y + 0.9 - s, 0.4),
+      ]);
+      this.markers.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: p.old ? 0x7a2a2a : 0xff3b3b, transparent: true, opacity: p.old ? 0.6 : 1 })));
+    }
   }
 
   private seg(ax: number, ay: number, bx: number, by: number, c: THREE.Color, z = 0.3): void {

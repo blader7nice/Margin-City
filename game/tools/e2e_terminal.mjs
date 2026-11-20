@@ -8,7 +8,8 @@ const { chromium } = require(path.join(process.env.NODE_PATH ?? '/opt/node22/lib
 const prefix = process.argv[2] ?? 'measurements/term';
 const srv = await serve(path.resolve('dist'));
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-const page = await browser.newPage({ viewport: { width: 1440, height: 810 } });
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 810 }, permissions: ['clipboard-read', 'clipboard-write'] });
+const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 const fail = (m) => {
@@ -47,6 +48,23 @@ for (let i = 0; i < 7; i++) {
 }
 await page.waitForFunction(() => window.__mc.sim().finished === true, null, { timeout: 10000 }).catch(() => fail('story did not complete'));
 const closed = await page.evaluate(() => !document.querySelector('#b12').classList.contains('open'));
-console.log(JSON.stringify({ ok: errors.length === 0 && closed, review, terminalClosed: closed, storyComplete: true, errors }));
+// End card + playtest panel: ratings, local save, copy report.
+await page.waitForSelector('#playtest .pt-r', { state: 'visible', timeout: 30000 }).catch(() => fail('no playtest panel on the end card'));
+await page.click('#playtest .pt-r[data-q=tension] button[data-v="4"]');
+await page.click('#playtest .pt-r[data-q=terminal] button[data-v="5"]');
+await page.fill('#ptNotes', 'e2e');
+await page.click('#ptCopy');
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${prefix}_6_endcard.png` });
+const pt = await page.evaluate(async () => {
+  const stored = JSON.parse(localStorage.getItem('mc.playtests.v1') ?? '[]');
+  let clip = '';
+  try {
+    clip = await navigator.clipboard.readText();
+  } catch {}
+  return { stored: stored.length, ratings: stored.at(-1)?.ratings, terminal: !!stored.at(-1)?.terminal?.decision, finished: stored.at(-1)?.finished, notes: stored.at(-1)?.notes, clipOk: clip.startsWith('MARGIN CITY playtest'), msg: document.querySelector('#ptMsg')?.textContent };
+});
+const ptOk = pt.stored >= 1 && pt.ratings?.tension === 4 && pt.ratings?.terminal === 5 && pt.terminal && pt.finished && pt.notes === 'e2e' && pt.clipOk;
+console.log(JSON.stringify({ ok: errors.length === 0 && closed && ptOk, review, terminalClosed: closed, storyComplete: true, playtest: pt, errors }));
 await browser.close();
 srv.close();

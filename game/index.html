@@ -66,6 +66,13 @@
       #benchOut { font-family: ui-monospace, monospace; font-size: 12px; text-align: left; white-space: pre; background: rgba(0,0,0,0.6); padding: 12px; margin-top: 14px; user-select: text; pointer-events: auto; }
       @media (max-width: 600px) { #debug { width: 220px; font-size: 10px; } #objective { left: 16px; } }
       body.photo #objective, body.photo #toast, body.photo #subtitle, body.photo #prompt, body.photo #mirror, body.photo #viewTag, body.photo #letterTop, body.photo #letterBot { display: none !important; }
+  #playtest { margin-top: 14px; text-align: left; font: 12px/1.45 ui-monospace, Menlo, monospace; color: #cfc6b4; max-width: 560px; }
+  #playtest .pt-sum { white-space: normal; opacity: .85; margin-bottom: 10px; }
+  #playtest .pt-q { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 4px 0; }
+  #playtest .pt-r button { width: 26px; height: 24px; padding: 0; margin-left: 3px; font-size: 12px; }
+  #playtest .pt-r button.sel { background: #c9a35a; color: #111; }
+  #playtest textarea { width: 100%; box-sizing: border-box; margin: 8px 0; background: #14161a; color: #ddd; border: 1px solid #3a3f48; font: inherit; }
+  #playtest .pt-msg { opacity: .6; margin-top: 6px; }
 </style>
   </head>
   <body>
@@ -108,6 +115,7 @@
         <div class="rule"></div>
         <p id="endStats" class="keys"></p>
         <div class="row"><button id="againBtn">Jeszcze raz</button><button id="techBtn">Warstwa techniczna</button></div>
+        <div id="playtest" style="display:none"></div>
         <div id="benchOut" style="display:none"></div>
       </div>
     </div>
