@@ -183,7 +183,7 @@ describe('Chase: MIRROR forecasts and MM-01 cut-offs', () => {
     sim.guard.x = 76;
     const log: SimEvent[] = [];
     run(sim, (s) => inp({ down: true, jump: tap(s) }), (s) => laneOf(s.leon) === 'tunnel', 2, log);
-    run(sim, (s) => inp({ right: true, crouch: s.leon.x < 94.6, jump: s.leon.x > 94.6 && tap(s) }), (s) => s.finished, 15, log);
+    run(sim, (s) => inp({ right: true, crouch: s.leon.x < 94.6, jump: s.leon.x > 94.6 && tap(s) }), (s) => s.chase.doorClosed, 15, log);
     expect(log.some((e) => e.type === 'subjectLost')).toBe(true);
     expect(sim.catches).toBe(0);
     expect(sim.chase.doorClosed).toBe(true);
@@ -192,8 +192,26 @@ describe('Chase: MIRROR forecasts and MM-01 cut-offs', () => {
   it('the whole chase is completable by an improvising player against the real MM-01', () => {
     const sim = new Simulation({ startChase: true });
     const st = { warnedG1: false };
-    run(sim, (s) => chaseBot(s, st), (s) => s.finished, 45);
+    run(sim, (s) => chaseBot(s, st), (s) => s.chase.doorClosed, 45);
     expect(sim.catches).toBe(0);
+  });
+
+  it('the safe room: terminal B-12 opens only after the door is sealed; the story completes from the terminal', () => {
+    const sim = new Simulation({ startChase: true, spawn: { x: 96.8, y: 0 } });
+    const log: SimEvent[] = [];
+    run(sim, () => inp({}), (s) => s.chase.doorClosed, 2, log);
+    run(sim, (s) => inp({ interact: tap(s) }), () => log.some((e) => e.type === 'terminal'), 2, log);
+    expect(sim.finished).toBe(false);
+    sim.completeStory();
+    expect(sim.finished).toBe(true);
+    // Before the seal the terminal does not respond.
+    const early = new Simulation({ skipReveal: true, spawn: { x: 97.4, y: 0 } });
+    const log2: SimEvent[] = [];
+    for (let i = 0; i < 60; i++) {
+      early.step(inp({ interact: i % 2 === 0 }));
+      log2.push(...early.events);
+    }
+    expect(log2.some((e) => e.type === 'terminal')).toBe(false);
   });
 
   it('respawning at the mid checkpoint resets gates and puts MM-01 a fair distance behind', () => {

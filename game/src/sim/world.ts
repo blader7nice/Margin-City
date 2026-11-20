@@ -17,6 +17,7 @@ import {
   REVEAL_TRIGGER_X,
   SOLIDS,
   SPAWN,
+  TERMINAL,
   TUNNEL_Y,
   VAULT,
 } from './level';
@@ -129,6 +130,13 @@ export class Simulation {
     this.leon = createLeon(x, y);
   }
 
+  /** Story beat after Terminal B-12 + Dave's recording: The Last Shift is complete. */
+  completeStory(): void {
+    if (this.finished) return;
+    this.finished = true;
+    this.events.push({ type: 'finished' });
+  }
+
   allSolids(): Solid[] {
     return [...SOLIDS, ...puzzleSolids(this.puzzle), ...chaseSolids(this.chase)];
   }
@@ -192,6 +200,8 @@ export class Simulation {
     // The vault itself is sealed: a clear "find another way" beat.
     if (canAct && interactPressed && !consumed.v && !used && leon.mode === 'normal' && leon.grounded) {
       if (Math.abs(VAULT.x - leon.x) <= VAULT.reach && leon.y < 0.5) this.events.push({ type: 'sealed' });
+      // Terminal B-12 (only once the safe room is sealed).
+      if (this.chase.doorClosed && Math.abs(TERMINAL.x - leon.x) <= TERMINAL.reach && leon.y > -0.3 && leon.y < 0.5) this.events.push({ type: 'terminal' });
     }
 
     leon.light = lightAt(leon.x, leon.y + leon.height * 0.55);
@@ -221,10 +231,6 @@ export class Simulation {
 
     if (this.chase.active) {
       const r = stepChase(this.chase, dt, { leon, guard: this.guard, events: this.events });
-      if (this.chase.doorClosed && !this.finished) {
-        this.finished = true;
-        this.events.push({ type: 'finished' });
-      }
       if (r.caught && !this.godMode && leon.mode !== 'caught') {
         leon.mode = 'caught';
         leon.modeT = 0;

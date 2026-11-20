@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Simulation, SIM_DT } from './sim/world';
-import { HIDE_SPOTS, VAULT, FORECAST, PUZZLE, LEDGE_Y } from './sim/level';
+import { HIDE_SPOTS, VAULT, FORECAST, PUZZLE, LEDGE_Y, TERMINAL } from './sim/level';
 import type { GuardMode, InputState } from './sim/types';
 import { NO_INPUT } from './sim/types';
 import { Assets, ALL_TEXTURES } from './render/assets';
@@ -17,6 +17,8 @@ import { TechView } from './render/techView';
 import { Post } from './render/post';
 import { QUALITY, type QualityName } from './render/quality';
 import { Input } from './input';
+import { Terminal } from './replay/terminal';
+import { storyScenario } from './replay/scenarios';
 import { Audio } from './audio/audio';
 import { FrameMetrics } from './metrics';
 
@@ -33,6 +35,7 @@ const bench = params.get('bench') === '1' || hash === 'bench';
 const autostart = params.get('autostart') === '1' || bench;
 const spawnParam = params.get('spawn')?.split(',').map(Number);
 const freeze = params.get('freeze') === '1';
+const openTerminalOnStart = params.get('terminal') === '1' || hash === 'terminal';
 /** Photo mode for screenshots: cam=px,py,pz,tx,ty,tz[,fov] */
 const camParam = params.get('cam')?.split(',').map(Number);
 /** Photo mode that follows Leon: camFollow=dx,dy,dz,fov */
@@ -197,6 +200,10 @@ async function boot(): Promise<void> {
     b.onclick = () => switchQuality(b.dataset.q as QualityName);
   });
   if (autostart) start();
+  if (openTerminalOnStart) {
+    start();
+    openTerminal();
+  }
   requestAnimationFrame(loop);
 }
 
@@ -215,6 +222,26 @@ function start(): void {
   timings.started = performance.now();
   metrics.reset();
 }
+
+// ------------------------------------------------------------------ Terminal B-12 (Market Replay)
+let storyDone = false;
+const terminal = new Terminal({
+  onStoryComplete: () => {
+    storyDone = true;
+    sim.completeStory();
+  },
+  onClose: () => {
+    $('hudRoot')?.classList.remove('dim');
+  },
+  onDecision: (d) => {
+    (window as unknown as Record<string, unknown>).__replay = d;
+  },
+});
+function openTerminal(): void {
+  if (terminal.isOpen) return;
+  terminal.open(storyScenario(), !storyDone);
+}
+(window as unknown as Record<string, unknown>).__openTerminal = openTerminal;
 
 // ------------------------------------------------------------------ HUD
 let subtitleT = 0;
@@ -308,6 +335,7 @@ function handleEvents(): void {
         audio.sting('finish');
         director.startFinale();
         setObjective('');
+        setTimeout(() => subtitle('MM-01', 'Archive breach confirmed. Subject identity pending.', 5), 1800);
         break;
       case 'noise':
         break;
@@ -374,7 +402,11 @@ function handleEvents(): void {
       case 'doorClosed':
         audio.slam();
         audio.setAlarm(false);
-        setTimeout(() => subtitle('MM-01', 'Archive breach confirmed. Subject identity pending.', 4.5), 1500);
+        subtitle('LEON', 'Zablokowane od środka. Stary pokój — MIRROR go nie widzi. Mam chwilę.', 3.6);
+        setObjective('Uruchom <b>Terminal B-12</b>');
+        break;
+      case 'terminal':
+        openTerminal();
         break;
       default:
         break;
@@ -437,7 +469,7 @@ function loop(now: number): void {
     if (input.wasPressed(code) && q !== Q.name) switchQuality(q);
   }
   if (started && !freeze) {
-    const inp = bench ? autopilot() : director.inCinematic ? NO_INPUT : input.state();
+    const inp = bench ? autopilot() : director.inCinematic || terminal.isOpen ? NO_INPUT : input.state();
     if (director.inCinematic && input.anyKey) director.skipCinematic();
     acc += rawDt;
     let steps = 0;
@@ -511,6 +543,8 @@ function updateVisuals(dt: number, t: number): void {
 
 function renderFrame(dt: number): void {
   renderer.info.reset();
+  // The terminal covers the screen: skip the 3D frame (saves GPU/battery on laptops and phones).
+  if (terminal.isOpen) return;
   if (techMode) {
     renderer.render(techScene, director.camera);
   } else {
@@ -543,6 +577,7 @@ function updateHud(dt: number): void {
     else if (l.pushing) prompt = 'Pchasz wózek z aktami (240 kg)';
     else if (l.x > 80.0 && l.x < 81.2 && l.y > -0.2 && l.y < 0.3) prompt = '<kbd>S</kbd> + <kbd>Spacja</kbd> zejdź do kanału serwisowego';
     else if (laneOf(l) === 'tunnel') prompt = 'Kanał serwisowy — czołgasz się';
+    else if (sim.chase.doorClosed && !sim.finished && Math.abs(TERMINAL.x - l.x) <= TERMINAL.reach) prompt = '<kbd>E</kbd> uruchom Terminal B-12';
     else if (hintT > 0) prompt = hintText;
     else if (l.x > -17.6 && l.x < -16.3 && !l.crouching) prompt = '<kbd>Ctrl</kbd> przeczołgaj się pod zaciętą kratą';
     else if (l.x > FORECAST.corridor.x0 && l.x < FORECAST.corridor.x0 + 1.5) prompt = '<span style="color:var(--cyan)">Cyjanowe światła: trasa przewidziana przez MIRROR</span>';
@@ -568,7 +603,7 @@ function updateHud(dt: number): void {
     finishedShown = true;
     setTimeout(() => {
       $('end').style.display = 'flex';
-      $('endStats').innerHTML = `Czas: ${Math.round(sim.time)} s · złapania: ${sim.catches}<br>Terminal B-12 i Market Replay — w następnym milestone.`;
+      $('endStats').innerHTML = `Czas: ${Math.round(sim.time)} s · złapania: ${sim.catches}<br>The Last Shift — koniec rozdziału. Następnie: <b>The Paper District</b>.`;
       $('againBtn').onclick = () => location.reload();
       $('techBtn').onclick = () => {
         $('end').style.display = 'none';

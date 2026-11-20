@@ -183,6 +183,8 @@ export const CHASE = {
   bounds: { x0: 45.4, x1: 99.4 },
 };
 export const LEVEL_BOUNDS = { x0: -38, x1: 100 };
+/** Terminal B-12 desk in the safe room (Market Replay). */
+export const TERMINAL = { x: 97.4, reach: 1.1 };
 
 /** Camera shots: authored framing per region; the director blends between them. */
 export interface CameraShot {

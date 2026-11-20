@@ -190,7 +190,8 @@ export type SimEvent =
   | { type: 'intercept'; kind: 'passage' | 'landing'; x: number }
   | { type: 'mmStairs'; to: Lane }
   | { type: 'subjectLost' }
-  | { type: 'doorClosed' };
+  | { type: 'doorClosed' }
+  | { type: 'terminal' };
 
 export type Lane = 'floor' | 'catwalk' | 'tunnel';
 
