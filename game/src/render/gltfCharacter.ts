@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { Scarf } from './characters';
+import { enhanceCharacterMaterials } from './fabric';
 import type { LeonState } from '../sim/types';
 import { HIDE_SPOTS, LEON_LANE_Z } from '../sim/level';
 
@@ -13,7 +13,11 @@ import { HIDE_SPOTS, LEON_LANE_Z } from '../sim/level';
  */
 
 export const LEON_CLIPS = ['Idle', 'Walk', 'Run', 'CrouchIdle', 'CrouchWalk', 'Push', 'JumpUp', 'Fall', 'Slide', 'Mantle', 'Hide', 'Caught'] as const;
-export type LeonClip = (typeof LEON_CLIPS)[number];
+/** Optional flavour clips: used when present, never required. */
+export const LEON_OPTIONAL_CLIPS = ['IdleCompass'] as const;
+export type LeonClip = (typeof LEON_CLIPS)[number] | (typeof LEON_OPTIONAL_CLIPS)[number];
+/** Seconds of standing still before Leon checks Dave's compass. */
+const COMPASS_AFTER = 3.5;
 
 /** Nominal speeds the cycles were authored for (m/s) → playback rate follows the simulation. */
 const NOMINAL: Partial<Record<LeonClip, number>> = { Walk: 2.6, Run: 5.4, CrouchWalk: 1.4, Push: 1.4 };
@@ -36,25 +40,34 @@ async function loadOne(url: string): Promise<GLTF> {
 
 const damp = (a: number, b: number, k: number, dt: number) => a + (b - a) * (1 - Math.exp(-k * dt));
 
+/** Additive yaw about the WORLD up axis for a bone with rotated parents (rotateOnWorldAxis assumes an unrotated parent). */
+export function turnBoneWorldY(bone: THREE.Object3D, angle: number): void {
+  if (!angle) return;
+  const pq = new THREE.Quaternion();
+  bone.parent?.getWorldQuaternion(pq);
+  const axis = new THREE.Vector3(0, 1, 0).applyQuaternion(pq.invert());
+  bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, angle));
+}
+
+
 export class GltfLeonRig {
   readonly root = new THREE.Group();
   private readonly yaw = new THREE.Group();
   private readonly mixer: THREE.AnimationMixer;
   private readonly actions = new Map<LeonClip, THREE.AnimationAction>();
   private current: LeonClip = 'Idle';
-  private readonly scarf: Scarf;
-  private readonly neck: THREE.Object3D | null;
+  private idleT = 0;
+  private readonly headRest: THREE.Quaternion | null;
   private readonly head: THREE.Object3D | null;
   private readonly fill: THREE.PointLight;
   private readonly rim: THREE.PointLight;
   private yawCur = 1.12;
   private z = LEON_LANE_Z;
   private lookYaw = 0;
-  private first = true;
   readonly missingClips: string[] = [];
-  readonly stats: { triangles: number; bones: number; clips: number };
+  readonly stats: { triangles: number; bones: number; clips: number; fabric: string[] };
 
-  constructor(gltf: GLTF) {
+  constructor(gltf: GLTF, opts: { fabric: boolean } = { fabric: true }) {
     const model = gltf.scene;
     this.root.add(this.yaw);
     this.yaw.add(model);
@@ -74,10 +87,10 @@ export class GltfLeonRig {
       if ((o as THREE.Bone).isBone) bones++;
     });
     this.mixer = new THREE.AnimationMixer(model);
-    for (const name of LEON_CLIPS) {
+    for (const name of [...LEON_CLIPS, ...LEON_OPTIONAL_CLIPS] as LeonClip[]) {
       const clip = gltf.animations.find((c) => c.name === name);
       if (!clip) {
-        this.missingClips.push(name);
+        if ((LEON_CLIPS as readonly string[]).includes(name)) this.missingClips.push(name);
         continue;
       }
       const a = this.mixer.clipAction(clip);
@@ -88,10 +101,10 @@ export class GltfLeonRig {
       this.actions.set(name, a);
     }
     this.actions.get('Idle')?.play();
-    this.stats = { triangles, bones, clips: this.actions.size };
-    this.neck = model.getObjectByName('neck') ?? null;
+    const { enhanced } = enhanceCharacterMaterials(model, { enabled: opts.fabric });
+    this.stats = { triangles, bones, clips: this.actions.size, fabric: enhanced };
     this.head = model.getObjectByName('head') ?? null;
-    this.scarf = new Scarf(new THREE.MeshStandardMaterial({ color: 0xc9802f, roughness: 0.92, side: THREE.DoubleSide }));
+    this.headRest = this.head ? this.head.quaternion.clone() : null;
     this.rim = new THREE.PointLight(0xa8c0ff, 7, 3.2, 2);
     this.rim.position.set(0, 2.1, -1.1);
     this.fill = new THREE.PointLight(0xffc89a, 2.6, 3.2, 2);
@@ -99,12 +112,8 @@ export class GltfLeonRig {
     this.root.add(this.rim, this.fill);
   }
 
-  get scarfMesh(): THREE.Mesh {
-    return this.scarf.mesh;
-  }
-
   snap(): void {
-    this.first = true;
+    this.idleT = 0;
   }
 
   private play(name: LeonClip, fade = 0.18): void {
@@ -158,9 +167,14 @@ export class GltfLeonRig {
       clip = 'Walk';
       rate = Math.max(0.5, speed / NOMINAL.Walk!);
     }
-    this.play(clip, clip === 'Mantle' || clip === 'Slide' ? 0.08 : 0.18);
+    // Quiet moment: Leon looks at Dave's compass (only when nothing threatens him).
+    this.idleT = clip === 'Idle' && l.mode === 'normal' && !(threat && threat.active) ? this.idleT + dt : 0;
+    if (this.idleT > COMPASS_AFTER && this.actions.has('IdleCompass')) clip = 'IdleCompass';
+    this.play(clip, clip === 'Mantle' || clip === 'Slide' ? 0.08 : clip === 'IdleCompass' || this.current === 'IdleCompass' ? 0.45 : 0.18);
     const a = this.actions.get(this.current);
     if (a) a.timeScale = rate;
+    // Bones without an animation track keep last frame's pose: reset before the mixer so additive look never accumulates.
+    if (this.head && this.headRest) this.head.quaternion.copy(this.headRest);
     this.mixer.update(dt);
 
     // Readability fill, as on the procedural rig.
@@ -172,19 +186,9 @@ export class GltfLeonRig {
     let lookTarget = 0;
     if (threat && threat.active && l.mode !== 'caught') lookTarget = THREE.MathUtils.clamp(Math.atan2(threat.x - l.x, 2.5) - this.yawCur, -0.9, 0.9);
     this.lookYaw = damp(this.lookYaw, lookTarget, 6, dt);
-    if (this.head) this.head.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), this.lookYaw);
-
-    // Procedural scarf tail anchored to the neck bone (secondary motion on top of skeletal animation).
-    this.root.updateMatrixWorld(true);
-    const anchor = new THREE.Vector3();
-    if (this.neck) this.neck.getWorldPosition(anchor);
-    else anchor.set(l.x, l.y + 1.45, this.z);
-    anchor.y -= 0.02;
-    anchor.addScaledVector(new THREE.Vector3(-Math.sin(this.yawCur), 0, -Math.cos(this.yawCur)), 0.07);
-    if (this.first) {
-      this.scarf.reset(anchor);
-      this.first = false;
+    if (this.head) {
+      this.root.updateMatrixWorld(true);
+      turnBoneWorldY(this.head, this.lookYaw);
     }
-    this.scarf.update(anchor, Math.min(dt, 1 / 30), t, -l.vx * 3 - 0.6);
   }
 }

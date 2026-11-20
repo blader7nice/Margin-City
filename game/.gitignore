@@ -2,3 +2,4 @@ node_modules/
 dist/
 measurements/*.png
 tools/blender/out/
+tools/blender/__pycache__/

@@ -12,6 +12,7 @@ import { laneOf } from './sim/chase';
 import { leonInRightCage } from './sim/puzzle';
 import { InspectorRig, LeonRig } from './render/characters';
 import { GltfLeonRig, loadGLB } from './render/gltfCharacter';
+import { GltfInspectorRig } from './render/gltfInspector';
 import { CameraDirector } from './render/camera';
 import { TechView } from './render/techView';
 import { Post } from './render/post';
@@ -35,11 +36,14 @@ const bench = params.get('bench') === '1' || hash === 'bench';
 const autostart = params.get('autostart') === '1' || bench;
 const spawnParam = params.get('spawn')?.split(',').map(Number);
 const freeze = params.get('freeze') === '1';
+if (params.get('hud') === '0') document.body.classList.add('photo');
 const openTerminalOnStart = params.get('terminal') === '1' || hash === 'terminal';
 /** Photo mode for screenshots: cam=px,py,pz,tx,ty,tz[,fov] */
 const camParam = params.get('cam')?.split(',').map(Number);
 /** Photo mode that follows Leon: camFollow=dx,dy,dz,fov */
 const camFollow = params.get('camFollow')?.split(',').map(Number);
+/** Photo/inspection overrides, also scriptable at runtime through window.__mc.photo (tools/photo.mjs). */
+const photo: { follow: number[] | null; cam: number[] | null; target: 'leon' | 'mm' } = { follow: camFollow ?? null, cam: null, target: 'leon' };
 
 function localStorageGet(k: string): string | null {
   try {
@@ -111,19 +115,25 @@ const proceduralLeon = new LeonRig();
 let gltfLeon: GltfLeonRig | null = null;
 /** Which Leon is shown: the skinned GLB from the Blender pipeline (default) or the procedural primitive rig. */
 let useGltf = params.get('leon') !== 'procedural';
-let leonRig: { root: THREE.Object3D; scarfMesh: THREE.Mesh; snap(): void; update: LeonRig['update'] } = proceduralLeon;
+let leonRig: { root: THREE.Object3D; snap(): void; update: LeonRig['update'] } = proceduralLeon;
 function applyLeonModel(): void {
   const g = useGltf && gltfLeon ? gltfLeon : null;
   leonRig = g ?? proceduralLeon;
   proceduralLeon.root.visible = !g;
   proceduralLeon.scarfMesh.visible = !g;
-  if (gltfLeon) {
-    gltfLeon.root.visible = !!g;
-    gltfLeon.scarfMesh.visible = !!g;
-  }
+  if (gltfLeon) gltfLeon.root.visible = !!g;
   leonRig.snap();
+  // MM-01 follows the same switch (GLB from the Blender pipeline vs procedural rig).
+  const m = useGltfMM && gltfMM ? gltfMM : null;
+  guardRig = m ?? proceduralMM;
+  proceduralMM.root.visible = !m;
+  if (gltfMM) gltfMM.root.visible = !!m;
+  guardRig.setConeVisible(!techMode);
 }
-const guardRig = new InspectorRig(Q.eyeShadow);
+const proceduralMM = new InspectorRig(Q.eyeShadow);
+let gltfMM: GltfInspectorRig | null = null;
+let useGltfMM = params.get('mm') !== 'procedural';
+let guardRig: InspectorRig | GltfInspectorRig = proceduralMM;
 const tech = new TechView();
 let hall: ReturnType<typeof buildHall>;
 let archive: ReturnType<typeof buildArchive>;
@@ -145,16 +155,31 @@ async function boot(): Promise<void> {
       console.warn('GLB character failed to load, using procedural rig', e);
       return null;
     });
+  const mmPromise = loadGLB('models/mm01.glb')
+    .then((g) => {
+      timings.mmGlbMs = performance.now() - glbT0;
+      return g;
+    })
+    .catch((e) => {
+      console.warn('MM-01 GLB failed to load, using procedural rig', e);
+      return null;
+    });
   await assets.load(ALL_TEXTURES, Math.min(8, renderer.capabilities.getMaxAnisotropy()), (p) => (loadbar.style.width = `${Math.round(p * 100)}%`));
   timings.assetsLoaded = performance.now();
   hall = buildHall(assets, Q, lightPool);
   archive = buildArchive(assets, lightPool);
-  scene.add(hall.root, archive.root, proceduralLeon.root, proceduralLeon.scarfMesh, guardRig.root);
+  scene.add(hall.root, archive.root, proceduralLeon.root, proceduralLeon.scarfMesh, proceduralMM.root);
   const glb = await glbPromise;
   if (glb) {
-    gltfLeon = new GltfLeonRig(glb);
-    scene.add(gltfLeon.root, gltfLeon.scarfMesh);
+    gltfLeon = new GltfLeonRig(glb, { fabric: Q.name !== 'low' });
+    scene.add(gltfLeon.root);
     timings.glbTriangles = gltfLeon.stats.triangles;
+  }
+  const mmGlb = await mmPromise;
+  if (mmGlb) {
+    gltfMM = new GltfInspectorRig(mmGlb, { eyeShadow: Q.eyeShadow, fabric: Q.name !== 'low' });
+    scene.add(gltfMM.root);
+    timings.mmTriangles = gltfMM.stats.triangles;
   }
   applyLeonModel();
   for (const o of hall.occluders) fader.register(o);
@@ -193,6 +218,7 @@ async function boot(): Promise<void> {
     isWebGL2,
     gpuTextureEstimateMB: +(texBytes / 1048576).toFixed(1),
     assetStats: assets.stats,
+    photo,
   };
   btn.onclick = () => start();
   document.querySelectorAll<HTMLButtonElement>('#qualityRow button').forEach((b) => {
@@ -452,10 +478,11 @@ function loop(now: number): void {
     debugOn = techMode || debugOn;
     applyView();
   }
-  if (input.wasPressed('KeyG') && gltfLeon) {
+  if (input.wasPressed('KeyG') && (gltfLeon || gltfMM)) {
     useGltf = !useGltf;
+    useGltfMM = useGltf;
     applyLeonModel();
-    toast(useGltf ? 'LEON: MODEL GLB (BLENDER, SKINNING)' : 'LEON: RIG PROCEDURALNY');
+    toast(useGltf ? 'POSTACIE: MODELE GLB (BLENDER, SKINNING)' : 'POSTACIE: RIGI PROCEDURALNE (M01)');
   }
   if (input.wasPressed('F1') || input.wasPressed('Backquote')) {
     debugOn = !debugOn;
@@ -500,25 +527,32 @@ function updateVisuals(dt: number, t: number): void {
   const hiddenIn = l.mode === 'hidden' || l.mode === 'enterHide' ? l.hideId : null;
   hall.update(t, dt, { leonX: l.x, leonY: l.y, camX: director.camera.position.x, camZ: director.camera.position.z, guardMode: g.mode, hiddenIn });
   archive.update(sim, t, dt);
+  if (guardRig instanceof GltfInspectorRig) guardRig.grabbing = l.mode === 'caught';
   guardRig.update(g, dt, t, director.camera.position, archive.mmPose(sim));
   const threatActive = (g.mode !== 'patrol' && Math.abs(g.x - l.x) < 12) || (sim.chase.active && sim.chase.mode !== 'inactive' && sim.chase.mode !== 'passage');
   leonRig.update(l, dt, t, { x: g.x, y: g.y, active: threatActive });
   const head = guardRig.head.getWorldPosition(new THREE.Vector3());
   const fwd = guardRig.head.getWorldDirection(new THREE.Vector3());
   director.update(dt, t, l, g, head, fwd, window.innerWidth / window.innerHeight);
-  if (camFollow && camFollow.length >= 3) {
-    director.camera.position.set(l.x + camFollow[0], l.y + camFollow[1], camFollow[2]);
-    director.camera.lookAt(l.x, l.y + 0.9, 0);
-    if (camFollow[3]) {
-      director.camera.fov = camFollow[3];
+  const pf = photo.follow;
+  if (pf && pf.length >= 3) {
+    const mm = photo.target === 'mm';
+    const tx = mm ? guardRig.root.position.x : l.x;
+    const ty = mm ? guardRig.root.position.y : l.y;
+    const tz = mm ? guardRig.root.position.z : 0;
+    director.camera.position.set(tx + pf[0], ty + pf[1], tz + pf[2]);
+    director.camera.lookAt(tx, ty + (pf[4] ?? 0.9), tz);
+    if (pf[3]) {
+      director.camera.fov = pf[3];
       director.camera.updateProjectionMatrix();
     }
   }
-  if (camParam && camParam.length >= 6) {
-    director.camera.position.set(camParam[0], camParam[1], camParam[2]);
-    director.camera.lookAt(camParam[3], camParam[4], camParam[5]);
-    if (camParam[6]) {
-      director.camera.fov = camParam[6];
+  const pc = photo.cam ?? camParam;
+  if (pc && pc.length >= 6) {
+    director.camera.position.set(pc[0], pc[1], pc[2]);
+    director.camera.lookAt(pc[3], pc[4], pc[5]);
+    if (pc[6]) {
+      director.camera.fov = pc[6];
       director.camera.updateProjectionMatrix();
     }
   }

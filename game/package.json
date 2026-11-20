@@ -11,7 +11,8 @@
     "test": "vitest run",
     "textures": "python3 -I tools/gen_textures.py public/tex",
     "measure": "node tools/measure.mjs",
-    "model:leon": "python3 tools/blender/make_leon.py tools/blender/out/leon_raw.glb && gltf-transform optimize tools/blender/out/leon_raw.glb public/models/leon.glb --compress meshopt --texture-compress false --simplify false"
+    "model:leon": "${BPY_PYTHON:-python3} tools/blender/make_leon_v2.py tools/blender/out/leon_v2_raw.glb && gltf-transform optimize tools/blender/out/leon_v2_raw.glb public/models/leon.glb --compress meshopt --texture-compress false --simplify false --palette false",
+    "model:mm01": "${BPY_PYTHON:-python3} tools/blender/make_mm01.py tools/blender/out/mm01_raw.glb && gltf-transform optimize tools/blender/out/mm01_raw.glb public/models/mm01.glb --compress meshopt --texture-compress false --simplify false --palette false"
   },
   "dependencies": {
     "postprocessing": "^6.39.6",

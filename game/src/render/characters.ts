@@ -425,7 +425,7 @@ export class LeonRig {
 }
 
 // ---------------------------------------------------------------- MM-01
-const EYE_COLORS: Record<string, THREE.Color> = {
+export const EYE_COLORS: Record<string, THREE.Color> = {
   patrol: new THREE.Color(0x63f3ff),
   return: new THREE.Color(0x63f3ff),
   suspicious: new THREE.Color(0xffb13a),
