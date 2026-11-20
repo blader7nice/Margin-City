@@ -29,6 +29,7 @@ export class CameraDirector {
   private pos = new THREE.Vector3();
   private target = new THREE.Vector3();
   private threatMix = 0;
+  private threatDy = 0;
   private cine: Cinematic | null = null;
   private shake = 0;
   shotId = 'entrance';
@@ -103,7 +104,11 @@ export class CameraDirector {
     // Room framing (puzzle diorama): pull the focus toward the room centre.
     if (shot.lockX !== undefined) fx += (shot.lockX - fx) * (shot.lockWeight ?? 0.5);
     this.focus.x = damp(this.focus.x, fx, 3.0, dt);
-    this.focus.y = this.focusY;
+    // Vertical threat framing (M03 readability): when MM-01 hunts on another lane (floor vs catwalk),
+    // drift the frame toward him so the threat never sits on the frame edge.
+    const dy = guard.y - leon.y;
+    this.threatDy = damp(this.threatDy, Math.abs(dy) > 1 ? dy * 0.5 * this.threatMix : 0, 2.0, dt);
+    this.focus.y = this.focusY + this.threatDy;
     this.focus.z = 0;
 
     const desiredPos = this.focus.clone().add(this.offset);

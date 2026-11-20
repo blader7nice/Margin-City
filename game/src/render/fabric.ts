@@ -149,7 +149,8 @@ export function enhanceCharacterMaterials(root: THREE.Object3D, opts: FabricOpti
             roughnessFactor = clamp(roughnessFactor + (fNoise(vRestPos * 40.0) - 0.5) * 0.12, 0.04, 1.0);`,
           );
       };
-      mat.customProgramCacheKey = () => `fabric-${spec.kind}-${strength.toFixed(2)}`;
+      // One shared program for every fabric: kind, scale and strength are uniforms (fewer first-frame compiles).
+      mat.customProgramCacheKey = () => 'fabric-v1';
       mat.needsUpdate = true;
       enhanced.push(mat.name);
     }

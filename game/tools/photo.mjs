@@ -1,7 +1,8 @@
 // Photo session: load the game once, then take many shots from a JSON script.
 //   node tools/photo.mjs <outDir> <shots.json> [query] [width] [height]
 // shots.json: [{ name, leon?: [x, y, facing], guard?: [x, y, facing], follow?: [dx, dy, z, fov, lookY], target?: 'leon'|'mm',
-//               cam?: [px, py, pz, tx, ty, tz, fov], wait?: frames, eval?: "js expression run in the page" }]
+//               cam?: [px, py, pz, tx, ty, tz, fov], wait?: frames, eval?: "js expression run in the page",
+//               keys?: ['ArrowRight', 'ShiftLeft'] held during the wait, untilEval?: "js condition to wait for instead of frames" }]
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,8 +32,11 @@ for (const s of shots) {
     mc.photo.target = s.target ?? 'leon';
     if (s.eval) (0, eval)(s.eval);
   }, s);
+  for (const k of s.keys ?? []) await page.keyboard.down(k);
+  if (s.untilEval) await page.waitForFunction(s.untilEval, null, { timeout: 180000, polling: 50 }).catch(() => process.stdout.write('(until timeout) '));
   const n0 = await page.evaluate(() => window.__mc.metrics.total);
   await page.waitForFunction((n) => window.__mc.metrics.total >= n, n0 + (s.wait ?? 12), { timeout: 180000 });
+  if (s.holdKeys !== true) for (const k of s.keys ?? []) await page.keyboard.up(k);
   await page.screenshot({ path: path.join(outDir, `${s.name}.png`) });
   process.stdout.write(`${s.name} `);
 }

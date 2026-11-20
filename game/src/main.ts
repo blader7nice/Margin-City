@@ -541,7 +541,8 @@ function loop(now: number): void {
 
   if (bench && started) {
     benchT += rawDt;
-    if ((sim.finished && benchT > 4) || benchT > 75) finishBench();
+    // The rendering route ends in the safe room (door sealed); the story itself then continues in Terminal B-12.
+    if (((sim.finished || sim.chase.doorClosed) && benchT > 4) || benchT > 75) finishBench();
   }
 }
 
@@ -738,7 +739,7 @@ function finishBench(): void {
     transferBytes: { js: sum((r) => r.name.endsWith('.js')), textures: sum((r) => r.name.includes('/tex/')), models: sum((r) => r.name.includes('/models/')), html: nav?.transferSize ?? 0 },
     lightPool: lightPool.lights.length,
     leonModel: useGltf && gltfLeon ? 'glb' : 'procedural',
-    completedRoute: sim.finished,
+    completedRoute: sim.finished || sim.chase.doorClosed,
   };
   (window as unknown as Record<string, unknown>).__bench = report;
   $('end').style.display = 'flex';

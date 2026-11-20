@@ -41,6 +41,7 @@ export class GltfInspectorRig {
   private readonly eyeMats: THREE.MeshStandardMaterial[] = [];
   private readonly cone: THREE.Mesh;
   private readonly coneMat: THREE.ShaderMaterial;
+  private readonly rim: THREE.PointLight;
   private yawCur = -1.25;
   private headYaw = 0;
   private readonly eyeColor = new THREE.Color(0x63f3ff);
@@ -124,6 +125,7 @@ export class GltfInspectorRig {
     const rim = new THREE.PointLight(0x9db8ff, 10, 3.6, 2);
     rim.position.set(0, 2.3, -0.9);
     this.root.add(rim);
+    this.rim = rim;
     this.coneMat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -209,6 +211,7 @@ export class GltfInspectorRig {
       m.emissiveIntensity = 6;
     }
     this.eyeLight.color.copy(this.eyeColor).lerp(new THREE.Color(1, 1, 1), 0.35);
+    this.rim.intensity = damp(this.rim.intensity, chase ? 18 : 10, 3, dt);
     this.eyeLight.intensity = 26 + (chase ? 14 : 0) + Math.sin(t * 40) * (g.mode === 'suspicious' ? 4 : 0);
     this.coneMat.uniforms.uColor.value.copy(this.eyeColor);
     this.coneMat.uniforms.uOpacity.value = (0.12 + g.suspicion * 0.12) * coneFade;

@@ -266,7 +266,8 @@ def crouch(p, k=1.0):
 
 T = math.tau
 rig.action('Idle', 72, lambda t: {'breath': math.sin(t * T) * 0.025, 'headTurn': math.sin(t * T) * 0.1, 'shoulder': (0.04, 0.12), 'elbow': (0.25, 0.75), 'hipsY': math.sin(t * T * 2) * 0.004, 'armOut': 0.1})
-rig.action('IdleCompass', 90, lambda t: {'breath': math.sin(t * T) * 0.02, 'shoulder': (0.05, 0.75), 'elbow': (0.3, 1.55), 'foreTwist': (0, 0.6), 'headTilt': 0.32 + math.sin(t * T) * 0.03, 'headTurn': -0.12, 'armOut': (0.1, 0.05)})
+# compass held in front of the chest, elbow at the side (angles solved numerically: hand.R ≈ (-0.10, -0.21, 1.27))
+rig.action('IdleCompass', 90, lambda t: {'breath': math.sin(t * T) * 0.02, 'shoulder': (0.05, 0.2), 'elbow': (0.3, 2.0 + math.sin(t * T) * 0.04), 'armOut': (0.1, 0.2), 'armTwist': (0, 0.8), 'headTilt': 0.4 + math.sin(t * T) * 0.03, 'headTurn': -0.18})
 rig.action('Walk', 20, lambda t: {**G(t, 0.5, 0.75, 0.42, 0.06, 0.035, 0.35), 'armOut': 0.1})
 rig.action('Run', 16, lambda t: {**G(t, 0.92, 1.4, 0.85, 0.28, 0.06, 1.2), 'armOut': 0.12})
 rig.action('CrouchIdle', 60, lambda t: crouch({'breath': math.sin(t * T) * 0.02}))
