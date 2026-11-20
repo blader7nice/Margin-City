@@ -19,6 +19,17 @@ export type LeonClip = (typeof LEON_CLIPS)[number];
 const NOMINAL: Partial<Record<LeonClip, number>> = { Walk: 2.6, Run: 5.4, CrouchWalk: 1.4, Push: 1.4 };
 
 export async function loadGLB(url: string): Promise<GLTF> {
+  try {
+    return await loadOne(url);
+  } catch (e) {
+    // Hosts that do not serve .glb get a JSON glTF with the (meshopt) buffer embedded: same data, same loader.
+    const alt = url.replace(/\.glb$/, '.gltf.json');
+    if (alt === url) throw e;
+    return loadOne(alt);
+  }
+}
+
+async function loadOne(url: string): Promise<GLTF> {
   // Meshopt-compressed + quantized GLB (gltf-transform optimize): ~2.4x smaller than the raw Blender export.
   return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url);
 }
