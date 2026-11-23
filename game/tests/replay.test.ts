@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ReplaySession } from '../src/replay/session';
-import { evaluate } from '../src/replay/evaluate';
+import { evaluate, evaluateOutcome, quadrant } from '../src/replay/evaluate';
+import { analyze } from '../src/replay/analysis';
 import { storyScenario, trainingScenario } from '../src/replay/scenarios';
 import { SESSION_0417_REGIMES, generate } from '../src/replay/synthetic';
 import type { Candle, OrderInput, Scenario } from '../src/replay/types';
@@ -132,31 +133,34 @@ describe('Market Replay — fills, stops and costs', () => {
 });
 
 describe('Market Replay — process evaluation (not just PnL)', () => {
-  it('a reasoned SKIP grades well', () => {
+  const ctxOf = (s: ReplaySession) => analyze(s.visible());
+  it('a reasoned SKIP is never graded below B, and is judged without any trade', () => {
     const s = new ReplaySession(storyScenario());
     const o = { ...base };
-    const e = evaluate(o, s.preview(o), null);
-    expect(e.processGrade).toBe('A');
+    const e = evaluate(o, s.preview(o), null, ctxOf(s));
+    expect(['A', 'B']).toContain(e.processGrade);
     expect(e.outcome).toBe('skip');
   });
 
-  it('no stop + big size + low confidence grades poorly even if it made money', () => {
+  it('no stop + big size + low confidence grades D even if it made money', () => {
     const s = new ReplaySession(storyScenario());
     const o: OrderInput = { side: 'long', sizeFrac: 0.9, stopPrice: null, takeProfit: null, thesis: 'trend_down', confidence: 1 };
-    const fakeWin = { netPnl: 500 } as unknown as Parameters<typeof evaluate>[2];
-    const e = evaluate(o, s.preview(o), fakeWin);
-    expect(['C', 'D']).toContain(e.processGrade);
-    expect(e.quadrant).toMatch(/szczęśliwy/);
+    const e = evaluate(o, s.preview(o), null, ctxOf(s));
+    expect(e.processGrade).toBe('D');
+    const q = quadrant(e.process, evaluateOutcome({ netPnl: 500 } as never, 10000));
+    expect(q).toMatch(/szczęśliwy/);
   });
 
-  it('a small, stopped, thesis-consistent trade grades well even when it lost', () => {
+  it('a small, stopped trade with a partially supported thesis is capped at B even when it would have won', () => {
     const s = new ReplaySession(storyScenario());
+    const x = ctxOf(s);
     const ref = s.decisionCandle.c;
-    const o: OrderInput = { side: 'long', sizeFrac: 0.2, stopPrice: ref * 0.95, takeProfit: ref * 1.12, thesis: 'capitulation_reversal', confidence: 2 };
-    const fakeLoss = { netPnl: -100 } as unknown as Parameters<typeof evaluate>[2];
-    const e = evaluate(o, s.preview(o), fakeLoss);
-    expect(['A', 'B']).toContain(e.processGrade);
-    expect(e.quadrant).toMatch(/Dobra decyzja, zły wynik/);
+    const stop = x.swingLow - 0.15 * x.atr;
+    const o: OrderInput = { side: 'long', sizeFrac: s.sizeForRisk(0.01, 'long', stop), stopPrice: stop, takeProfit: ref + 2.5 * (ref - stop), thesis: 'capitulation_reversal', confidence: 2 };
+    const e = evaluate(o, s.preview(o), null, x);
+    expect(e.processGrade).not.toBe('A');
+    expect(['B', 'C']).toContain(e.processGrade);
+    expect(e.process.caps.join(' ')).toMatch(/częściowo|pokrycia/);
   });
 
   it('training sessions are labelled synthetic and respect the 40–80 visible-candle rule', () => {

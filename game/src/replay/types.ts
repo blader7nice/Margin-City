@@ -48,7 +48,15 @@ export interface CostModel {
 export type Side = 'long' | 'short' | 'skip';
 
 /** What the player believes — evaluated against the action (process, not outcome). */
-export type ThesisId = 'trend_up' | 'trend_down' | 'capitulation_reversal' | 'breakdown' | 'range' | 'no_edge';
+export type ThesisId =
+  | 'trend_up'
+  | 'trend_down'
+  | 'breakout_up'
+  | 'breakdown'
+  | 'capitulation_reversal'
+  | 'exhaustion_top'
+  | 'range'
+  | 'no_edge';
 
 export interface OrderInput {
   side: Side;
@@ -61,7 +69,7 @@ export interface OrderInput {
   confidence: 1 | 2 | 3;
 }
 
-export type ExitReason = 'stop' | 'target' | 'horizon' | 'gap_stop';
+export type ExitReason = 'stop' | 'target' | 'horizon' | 'gap_stop' | 'manual';
 
 export interface Trade {
   side: 'long' | 'short';
@@ -83,6 +91,18 @@ export interface Trade {
   /** Max adverse / favourable excursion in % of entry, while the trade was open. */
   mae: number;
   mfe: number;
+  /** Stop / target at the moment of exit (may differ from the plan after management). */
+  finalStop: number | null;
+  finalTarget: number | null;
+}
+
+/** Position management after entry (each action is taken with the information available at that candle). */
+export interface ManagementAction {
+  /** Index of the last visible candle when the action was taken. */
+  index: number;
+  kind: 'stop' | 'target' | 'close';
+  from: number | null;
+  to: number | null;
 }
 
 export interface JournalEntry {
@@ -109,4 +129,11 @@ export interface Scenario {
   journal?: JournalEntry;
   /** Dave's own decision on that session, shown only in the review (never before). */
   authorNote?: string[];
+  /** Price decimals for display. */
+  decimals?: number;
+  /** Training library: family id + short brief (describes the visible situation only). */
+  family?: string;
+  brief?: string;
+  /** Hidden market model for the post-review "alternative futures" panel. Never used before the decision. */
+  model?: import('./market').Built['model'];
 }

@@ -1,4 +1,4 @@
-import type { Candle, OrderInput, Scenario, Trade } from './types';
+import type { Candle, ManagementAction, OrderInput, Scenario, Trade } from './types';
 
 /**
  * Replay session — the honest core of the terminal.
@@ -10,6 +10,9 @@ import type { Candle, OrderInput, Scenario, Trade } from './types';
  *  - Stops/targets are checked against each new candle's high/low. A gap through the stop fills at the open.
  *    When a single candle touches BOTH stop and target we assume the stop came first (conservative, stated in UI).
  *  - Fees per side on notional, slippage on both fills. SKIP is a complete, valid decision.
+ *  - After entry the player may manage the position like on a real platform: move the stop / target or close.
+ *    Every action is logged with the candle it was taken on (the evaluation judges it with that information only).
+ *    A manual close fills at the NEXT candle's open + slippage (same rule as the entry).
  */
 
 export type Phase = 'analysis' | 'revealing' | 'review';
@@ -32,6 +35,11 @@ export class ReplaySession {
   cursor: number;
   order: OrderInput | null = null;
   trade: Trade | null = null;
+  /** Live stop / target (start as the plan, may be changed after entry). */
+  liveStop: number | null = null;
+  liveTp: number | null = null;
+  readonly actions: ManagementAction[] = [];
+  private pendingClose = false;
   private open: {
     side: 'long' | 'short';
     entryIndex: number;
@@ -117,8 +125,58 @@ export class ReplaySession {
     const p = this.preview(o);
     if (p.errors.length) return p.errors;
     this.order = { ...o, sizeFrac: Math.max(0, Math.min(1, o.sizeFrac)) };
+    this.liveStop = o.side === 'skip' ? null : o.stopPrice;
+    this.liveTp = o.side === 'skip' ? null : o.takeProfit;
     this.phase = 'revealing';
     return [];
+  }
+
+  /** Notional fraction that risks `riskFrac` of capital with the given stop (no leverage: capped at 100 %). */
+  sizeForRisk(riskFrac: number, side: 'long' | 'short', stop: number): number {
+    const ref = this.decisionCandle.c;
+    const dist = side === 'long' ? ref - stop : stop - ref;
+    if (!(dist > 0)) return 0;
+    const qty = (riskFrac * this.scenario.capital) / dist;
+    return Math.max(0, Math.min(1, (qty * ref) / this.scenario.capital));
+  }
+
+  /** Open position snapshot for the UI (null before entry / after exit). */
+  position(): { side: 'long' | 'short'; entryPrice: number; qty: number; price: number; unrealized: number; r: number | null; stop: number | null; target: number | null; closing: boolean } | null {
+    if (!this.open) return null;
+    const t = this.open;
+    const price = this.candles[this.cursor].c;
+    const dir = t.side === 'long' ? 1 : -1;
+    const { feeBps, slippageBps } = this.scenario.costs;
+    // Net of the fees already paid and the estimated exit costs.
+    const exitCost = t.qty * price * ((feeBps + slippageBps) / 10000);
+    const unrealized = dir * t.qty * (price - t.entryPrice) - t.notional * (feeBps / 10000) - exitCost;
+    const plan = this.order!.stopPrice;
+    const risk = plan != null ? t.qty * Math.abs(t.entryPrice - plan) : null;
+    return { side: t.side, entryPrice: t.entryPrice, qty: t.qty, price, unrealized, r: risk ? unrealized / risk : null, stop: this.liveStop, target: this.liveTp, closing: this.pendingClose };
+  }
+
+  /** Move the stop or target of the open position. Returns an error message or null. */
+  modify(kind: 'stop' | 'target', value: number | null): string | null {
+    if (this.phase !== 'revealing' || !this.open) return 'Brak otwartej pozycji.';
+    const t = this.open;
+    const price = this.candles[this.cursor].c;
+    if (value != null) {
+      if (kind === 'stop' && (t.side === 'long' ? value >= price : value <= price)) return 'Stop musi być po stronie straty względem bieżącej ceny.';
+      if (kind === 'target' && (t.side === 'long' ? value <= price : value >= price)) return 'Cel musi być po stronie zysku względem bieżącej ceny.';
+    }
+    const from = kind === 'stop' ? this.liveStop : this.liveTp;
+    if (from === value) return null;
+    if (kind === 'stop') this.liveStop = value;
+    else this.liveTp = value;
+    this.actions.push({ index: this.cursor, kind, from, to: value });
+    return null;
+  }
+
+  /** Close at the next candle's open (+ slippage). */
+  requestClose(): void {
+    if (this.phase !== 'revealing' || !this.open || this.pendingClose) return;
+    this.pendingClose = true;
+    this.actions.push({ index: this.cursor, kind: 'close', from: null, to: null });
   }
 
   /** Reveal the next candle. Returns false when the replay is finished. */
@@ -142,17 +200,23 @@ export class ReplaySession {
     }
     if (this.open) {
       const t = this.open;
+      const stop = this.liveStop;
+      const tp = this.liveTp;
+      if (this.pendingClose && this.cursor > t.entryIndex) {
+        this.pendingClose = false;
+        return this.closeAndContinue(c.o, 'manual');
+      }
       // Gap through the stop at the open → filled at the open.
-      if (o.stopPrice != null) {
-        const gap = t.side === 'long' ? c.o <= o.stopPrice : c.o >= o.stopPrice;
-        if (gap && this.cursor > t.entryIndex) return this.close(c.o, 'gap_stop');
+      if (stop != null) {
+        const gap = t.side === 'long' ? c.o <= stop : c.o >= stop;
+        if (gap && this.cursor > t.entryIndex) return this.closeAndContinue(c.o, 'gap_stop');
       }
       t.maxP = Math.max(t.maxP, c.h);
       t.minP = Math.min(t.minP, c.l);
-      const hitStop = o.stopPrice != null && (t.side === 'long' ? c.l <= o.stopPrice : c.h >= o.stopPrice);
-      const hitTp = o.takeProfit != null && (t.side === 'long' ? c.h >= o.takeProfit : c.l <= o.takeProfit);
-      if (hitStop) return this.close(o.stopPrice!, 'stop'); // both touched → stop first (conservative)
-      if (hitTp) return this.close(o.takeProfit!, 'target');
+      const hitStop = stop != null && (t.side === 'long' ? c.l <= stop : c.h >= stop);
+      const hitTp = tp != null && (t.side === 'long' ? c.h >= tp : c.l <= tp);
+      if (hitStop) return this.closeAndContinue(stop!, 'stop'); // both touched → stop first (conservative)
+      if (hitTp) return this.closeAndContinue(tp!, 'target');
     }
     if (this.cursor >= this.endIndex) {
       if (this.open) this.close(c.c, 'horizon');
@@ -168,6 +232,15 @@ export class ReplaySession {
       /* keep stepping */
     }
     if (this.phase === 'revealing') this.finish();
+  }
+
+  private closeAndContinue(rawPrice: number, reason: Trade['exitReason']): boolean {
+    this.close(rawPrice, reason);
+    if (this.cursor >= this.endIndex) {
+      this.finish();
+      return false;
+    }
+    return true;
   }
 
   private close(rawPrice: number, reason: Trade['exitReason']): boolean {
@@ -199,6 +272,8 @@ export class ReplaySession {
       rMultiple: plannedRisk ? netPnl / plannedRisk : null,
       mae: (dir > 0 ? (t.entryPrice - t.minP) / t.entryPrice : (t.maxP - t.entryPrice) / t.entryPrice) * 100,
       mfe: (dir > 0 ? (t.maxP - t.entryPrice) / t.entryPrice : (t.entryPrice - t.minP) / t.entryPrice) * 100,
+      finalStop: this.liveStop,
+      finalTarget: this.liveTp,
     };
     this.open = null;
     // The remaining candles are still revealed (the player sees what happened next).

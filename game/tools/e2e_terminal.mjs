@@ -22,9 +22,10 @@ await page.screenshot({ path: `${prefix}_1_journal.png` });
 await page.click('[data-a=toTicket]');
 await page.click('[data-th=capitulation_reversal]');
 await page.click('[data-sd=long]');
+await page.click('[data-a=stopWick]');
+await page.click('[data-sm=capital]');
 await page.fill('[data-in=size]', '20');
 await page.dispatchEvent('[data-in=size]', 'input');
-await page.click('[data-a=stopWick]');
 await page.check('[data-in=useTp]');
 await page.mouse.move(520, 360);
 await page.screenshot({ path: `${prefix}_2_ticket.png` });
@@ -48,6 +49,12 @@ for (let i = 0; i < 7; i++) {
 }
 await page.waitForFunction(() => window.__mc.sim().finished === true, null, { timeout: 10000 }).catch(() => fail('story did not complete'));
 const closed = await page.evaluate(() => !document.querySelector('#b12').classList.contains('open'));
+// Chronology: Dave's recording plays once; the in-world terminal now opens the training simulator.
+await page.evaluate(() => window.__openTerminal());
+await page.waitForSelector('#b12.open');
+const reopened = await page.evaluate(() => ({ mode: document.querySelector('#b12 [data-k=mode]').textContent, journal: !!document.querySelector('#b12 .journal') }));
+if (reopened.mode !== 'TRENING' || reopened.journal) fail('story replayed after completion: ' + JSON.stringify(reopened));
+await page.keyboard.press('Escape');
 // End card + playtest panel: ratings, local save, copy report.
 await page.waitForSelector('#playtest .pt-r', { state: 'visible', timeout: 30000 }).catch(() => fail('no playtest panel on the end card'));
 await page.click('#playtest .pt-r[data-q=tension] button[data-v="4"]');
@@ -65,6 +72,25 @@ const pt = await page.evaluate(async () => {
   return { stored: stored.length, ratings: stored.at(-1)?.ratings, terminal: !!stored.at(-1)?.terminal?.decision, finished: stored.at(-1)?.finished, notes: stored.at(-1)?.notes, clipOk: clip.startsWith('MARGIN CITY playtest'), msg: document.querySelector('#ptMsg')?.textContent };
 });
 const ptOk = pt.stored >= 1 && pt.ratings?.tension === 4 && pt.ratings?.terminal === 5 && pt.terminal && pt.finished && pt.notes === 'e2e' && pt.clipOk;
-console.log(JSON.stringify({ ok: errors.length === 0 && closed && ptOk, review, terminalClosed: closed, storyComplete: true, playtest: pt, errors }));
+// Training simulator straight from the menu URL (outside the story).
+const tp = await ctx.newPage();
+tp.on('pageerror', (e) => errors.push(String(e)));
+await tp.goto(`http://127.0.0.1:${srv.address().port}/?replay=panic-6637&q=low`);
+await tp.waitForSelector('#b12.open', { timeout: 120000 }).catch(() => fail('training did not open'));
+const sid = await tp.evaluate(() => document.querySelector('#b12 [data-k=sid]').textContent);
+await tp.click('[data-th=no_edge]');
+await tp.click('[data-sd=skip]');
+await tp.click('[data-a=submit]');
+await tp.click('[data-a=end]');
+await tp.waitForSelector('#b12 .overlay:not([hidden]) .grade', { timeout: 20000 }).catch(() => fail('no training review'));
+const tr = await tp.evaluate(() => ({ cards: document.querySelectorAll('#b12 .overlay:not([hidden]) .card').length, rec: !!document.querySelector('#b12 [data-a=rec]'), grade: document.querySelector('#b12 .grade .big').textContent, hist: JSON.parse(localStorage.getItem('mc.b12.history.v1') ?? '[]').length }));
+await tp.screenshot({ path: `${prefix}_7_training_review.png` });
+await tp.click('[data-a=lib2]');
+await tp.waitForSelector('#b12 .overlay.lib:not([hidden]) [data-fam]');
+await tp.screenshot({ path: `${prefix}_8_library.png` });
+await tp.click('[data-a=random]');
+await tp.waitForSelector('#b12 [data-a=submit]');
+const trOk = sid === 'panic-6637' && tr.cards === 3 && !tr.rec && tr.hist >= 1;
+console.log(JSON.stringify({ ok: errors.length === 0 && closed && ptOk && trOk, review, terminalClosed: closed, storyComplete: true, reopened, training: { sid, ...tr }, playtest: pt, errors }));
 await browser.close();
 srv.close();

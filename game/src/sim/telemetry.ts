@@ -56,6 +56,8 @@ export interface TelemetryReport {
   chase: { started: number | null; ended: number | null; laneSeconds: Record<Lane, number>; laneSwitches: number; intercepts: number; stairsByMM: number };
   actions: { jumps: number; slides: number; hides: number; pushSeconds: number; ductEntries: number; mantles: number };
   terminal: { opened: number; decision: unknown } | null;
+  /** Training-simulator sessions (outside the story). */
+  training: unknown[];
   ratings: Record<string, number>;
   notes: string;
 }
@@ -82,6 +84,7 @@ export class Telemetry {
       chase: { started: null, ended: null, laneSeconds: { floor: 0, catwalk: 0, tunnel: 0 }, laneSwitches: 0, intercepts: 0, stairsByMM: 0 },
       actions: { jumps: 0, slides: 0, hides: 0, pushSeconds: 0, ductEntries: 0, mantles: 0 },
       terminal: null,
+      training: [],
       ratings: {},
       notes: '',
     };
@@ -203,6 +206,10 @@ export class Telemetry {
 
   setTerminalDecision(d: unknown): void {
     this.r.terminal = { opened: this.r.terminal?.opened ?? this.r.totalTime, decision: d };
+  }
+
+  addTraining(d: unknown): void {
+    if (this.r.training.length < 50) this.r.training.push(d);
   }
 
   rate(question: string, value: number): void {

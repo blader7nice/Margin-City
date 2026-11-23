@@ -20,7 +20,7 @@ import { Post } from './render/post';
 import { QUALITY, type QualityName } from './render/quality';
 import { Input } from './input';
 import { Terminal } from './replay/terminal';
-import { storyScenario } from './replay/scenarios';
+import { scenarioFromId, storyScenario } from './replay/scenarios';
 import { Audio } from './audio/audio';
 import { FrameMetrics } from './metrics';
 
@@ -39,6 +39,8 @@ const spawnParam = params.get('spawn')?.split(',').map(Number);
 const freeze = params.get('freeze') === '1';
 if (params.get('hud') === '0') document.body.classList.add('photo');
 const openTerminalOnStart = params.get('terminal') === '1' || hash === 'terminal';
+/** Training simulator straight from the URL: ?terminal=train or ?replay=<scenario-id> (does not start the story). */
+const openTrainingOnStart = params.get('terminal') === 'train' || params.has('replay');
 /** Photo mode for screenshots: cam=px,py,pz,tx,ty,tz[,fov] */
 const camParam = params.get('cam')?.split(',').map(Number);
 /** Photo mode that follows Leon: camFollow=dx,dy,dz,fov */
@@ -252,6 +254,8 @@ async function boot(): Promise<void> {
     start();
     openTerminal();
   }
+  $('trainBtn').onclick = () => openTraining();
+  if (openTrainingOnStart) openTraining(params.get('replay'));
   requestAnimationFrame(loop);
 }
 
@@ -283,12 +287,20 @@ const terminal = new Terminal({
   },
   onDecision: (d) => {
     (window as unknown as Record<string, unknown>).__replay = d;
-    telemetry.setTerminalDecision(d);
+    if (d.mode === 'story') telemetry.setTerminalDecision(d);
+    else telemetry.addTraining(d);
   },
 });
+/** In-world terminal: Dave's session once per playthrough, the training simulator afterwards. */
 function openTerminal(): void {
   if (terminal.isOpen) return;
-  terminal.open(storyScenario(), !storyDone);
+  if (!storyDone) terminal.openStory(storyScenario());
+  else terminal.openTraining();
+}
+/** Training simulator (menu / URL): never touches the story or Dave's recording. */
+function openTraining(id?: string | null): void {
+  if (terminal.isOpen) return;
+  terminal.openTraining(id ? scenarioFromId(id) : null);
 }
 (window as unknown as Record<string, unknown>).__openTerminal = openTerminal;
 
