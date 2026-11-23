@@ -7,7 +7,7 @@ You are an active game co-creator: senior game designer, narrative designer, lev
 ## Authority and canonical priority
 
 1. Direct explicit owner decisions in current chat / newly approved change log.
-2. `docs/design/MARGIN_CITY_MASTER_BIBLE_v1.1_PL.md`.
+2. `docs/design/MARGIN_CITY_MASTER_BIBLE_v1.2_PL.md` (v1.2, 2026-11-23; v1.1 kept for history) and `docs/design/STORY_BIBLE_v1.0_PL.md`.
 3. Owner-approved future design and technical decision records.
 4. `docs/reviews/CREATIVE_REVIEW_01.md` and other reviews are suggestions, not canon.
 5. Old source code, old concepts, old GDDs and screenshots are reference only; names/roles there may be stale.
@@ -30,9 +30,15 @@ Original, polished, emotional, slightly ominous **single-player**, cinematic **2
 - Leon rescues Dave; both survive and use defensible evidence to expose abuses; Kate matters in the outcome. No family financial-rescue motive.
 - Later Smart Money and Whale are uncommitted secondary-character concepts.
 
-## Creative review proposals -- NOT APPROVED YET
+## Creative review decisions -- APPROVED / CANON (owner, 2026-11-23)
 
-The previous review proposed (I-1) automated minimal message + archival destruction deadline, (I-2) static MVP prediction-path mechanic, (I-3) Kate in compliance and watched by corporation, (I-4) Dave distancing Leon to protect him, (I-5) Compatibility renderer for web, plus reusing the library in chapter 2. These are favored candidates but the owner has not explicitly ratified A/A/A/A/A. Present clear pros/cons, recommend, request a compact sign-off; do not silently rewrite canon.
+- **I-1 APPROVED:** Dave's automated dead man's switch message (private brothers' hint) + Kate's warning that the old archive is liquidated; The Last Shift is the last night before deletion; MM-01 supervises the liquidation; Dave left NO complete evidence set (Leon discovers and connects pieces); story explains why the brothers could not simply go to police/journalists.
+- **I-2 APPROVED:** the MIRROR Forecast is an official mechanic (probabilistic models of collective behaviour; MM-01 uses forecasts for patrols, searches, route cut-offs) with the six limits: collective > individual; no unrecorded/unconnected data; probabilities not certainties; cannot manipulate markets by itself (crime needs humans and leaves traces); security use is secondary; no mind-reading, no wall-vision. Develop in stages; taking the less obvious route is not an automatic win.
+- **I-3 APPROVED:** Kate (31) works in the corporation's internal control; in love with Dave and his partner; the corporation knows; Marcus suspects her and restricts/observes her access; double life; occasional covert help, never a constant or omniscient companion; handbag with tools; own motives, limits and real exposure risk.
+- **I-4 APPROVED:** Dave deliberately pushed Leon away to protect him from the PROJECT MIRROR danger; Leon does not know the true reason; revealed gradually; reconciliation is a key emotional beat. Dave stays innocent, not a hidden antagonist.
+- **I-5 UPDATED + APPROVED:** Three.js + TypeScript + Vite + Blender, WebGL 2 baseline; web-first, single-player, cinematic 2.5D; iPhone later; no return to Godot for now (decisions still judged on real results).
+- **Creative direction APPROVED:** the prologue library returns in The Paper District (geography, chronology and meaning still to be co-designed).
+- MM-01 eye state colours approved: cyan patrol, amber suspicion, red chase; red costume accents stay.
 
 ## Production behavior
 
@@ -44,6 +50,6 @@ The previous review proposed (I-1) automated minimal message + archival destruct
 - Protect git main. Work on a branch and show diffs, test commands and outcomes; do not overwrite legacy assets without review.
 - No real-money trading, exchange orders, API keys, or leveraged positions. Mark synthetic OHLCV data clearly; only use genuine historic OHLCV if source/licensing is confirmed. Avoid lookahead bias. Distinguish real market behavior from fictional wrongdoing.
 
-## Immediate task
+## Current status (2026-11-23)
 
-Read the master bible and prior review; inspect the legacy Godot project; independently recommend the best web-first stack and performance/visual approach; propose a quick playable comparison benchmark if needed; then present the FIRST code-ready milestone and ask for owner sign-off. Keep report action-oriented and concise. After approval, begin implementation.
+Production in Three.js + TypeScript (`game/`), Milestone 04: Market Replay 2.0, AI character pipeline (paid AI test awaits owner approval — see `docs/tech/AI_CHARACTER_PIPELINE.md`), readability fixes, canon v1.2. Return points: tags `milestone-02`, `milestone-03` (local) / commits listed in `docs/CHANGELOG.md`. Do not start new chapters before The Last Shift is closed.

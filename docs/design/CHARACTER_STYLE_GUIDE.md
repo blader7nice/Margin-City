@@ -37,11 +37,11 @@ Nazwy i podpisy na starym concepcie mogą być nieaktualne; **obowiązuje kanon 
 - w scenach z PROJECT MIRROR ma identyfikator / smycz analityka (detal, nie kostium korporacyjny);
 - wygląda na zmęczonego, ale nie na ofiarę: w Rozdziale 1 widzimy go tylko na nagraniu.
 
-**Kate (31, do zrobienia):**
+**Kate (31, do zrobienia; kanon I-3: kontrola wewnętrzna korporacji, obserwowana):**
 - długie kręcone blond włosy;
 - kobiecy, praktyczny strój: płaszcz lub trencz w kolorze camel, sweter, spodnie albo spódnica do ruchu, płaskie buty;
 - **rozpoznawalna torebka z drobnymi narzędziami**: to jej sylwetkowy znak, jak torba u Leona;
-- podwójna tożsamość: ten sam strój z identyfikatorem korporacji albo bez niego (wariant materiałowy, nie osobny model).
+- podwójna tożsamość: ten sam strój z identyfikatorem kontroli wewnętrznej albo bez niego (wariant materiałowy, nie osobny model).
 
 ## 3. Kontrakt techniczny (obowiązuje każdą postać, niezależnie od źródła modelu)
 
@@ -85,6 +85,8 @@ To jest **górna granica tego, co sensownie zrobię kodem**. Kolejne iteracje da
 Postacie traktuję jako produkcyjne placeholdery z poprawnym kontraktem, nie jako modele docelowe.
 
 ## 5. Droga do jakości docelowej: opcje i koszty
+
+> **M04:** aktualne porównanie narzędzi, wyniki testu i plan testu Leona są w `docs/tech/AI_CHARACTER_PIPELINE.md` (ta sekcja to stan z M03).
 
 Ceny zebrałem 20.11.2026 z cenników i agregatorów. Źródła są miejscami sprzeczne, więc ceny trzeba potwierdzić przed zakupem. Kurs ~4 zł/$ jest orientacyjny.
 
@@ -134,14 +136,11 @@ Ceny zebrałem 20.11.2026 z cenników i agregatorów. Źródła są miejscami sp
    - skryptowe wersje (jak Leon v2) robimy tylko jako placeholdery do greyboxu rozdziałów 2+.
 4. **Kate i podwójna tożsamość:** jeden model, dwa zestawy materiałów (`kate_corp` z identyfikatorem, `kate_private`). Bez drugiego modelu.
 
-## 7. Decyzja do podjęcia: kolor oka MM-01
+## 7. Kolor oka MM-01 — ZATWIERDZONE (23.11.2026)
 
-Concept ma **czerwone** oko. W grze oko pokazuje **stan percepcji**:
+Oko pokazuje stan percepcji:
 - cyjan — patrol;
 - bursztyn — podejrzenie;
 - czerwień — pościg.
 
-To czytelny, diegetyczny sygnał skradania.
-
-**Rekomendacja:** zostawić kolory stanu na oku i stożku, a czerwień concept artu dać na stałe akcenty (skroń, szwy, LED-y uprzęży). Tak jest w M03.
-Alternatywa: oko zawsze czerwone, stan pokazuje tylko stożek i HUD. Wtedy MM-01 jest wierniejszy wobec concept artu, ale słabiej czytelny w ciemności.
+Czerwone akcenty stroju (skroń, szwy, LED-y uprzęży) zostają.

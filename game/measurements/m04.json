@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-23T15:55:13.027Z",
+  "environment": "headless Chromium + SwiftShader (CPU rendering) — frame times NOT representative of GPU hardware",
+  "build": {
+    "jsRawKB": 1090.8,
+    "jsGzipKB": 328.9,
+    "jsBrotliKB": 279.3,
+    "htmlKB": 8.1,
+    "texturesKB": 563.5,
+    "textureFiles": 15,
+    "modelsKB": 774.9,
+    "modelsGzipKB": 370.9
+  },
+  "coldLoad": {
+    "tti": 3062,
+    "firstFrame": 3061,
+    "assetsLoaded": 390,
+    "sceneBuilt": 602,
+    "transfer": {
+      "html": 3313,
+      "js": 337096,
+      "textures": 581520,
+      "models": 794104
+    },
+    "glbMs": 100,
+    "gpuTextureEstimateMB": 46.9,
+    "webgl2": true,
+    "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "jsHeapUsedMB": 29,
+    "wallMs": 3068,
+    "errors": []
+  },
+  "warmLoad": {
+    "tti": 2364,
+    "firstFrame": 2364,
+    "assetsLoaded": 884,
+    "sceneBuilt": 995,
+    "transfer": {
+      "html": 3313,
+      "js": 0,
+      "textures": 0,
+      "models": 0
+    },
+    "glbMs": 61,
+    "gpuTextureEstimateMB": 46.9,
+    "webgl2": true,
+    "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "jsHeapUsedMB": 42.4,
+    "wallMs": 2372,
+    "errors": []
+  },
+  "benchLowQuality": {
+    "quality": "low",
+    "webgl2": true,
+    "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "viewport": "960x540@0.75",
+    "frames": 423,
+    "fps": 3.8,
+    "frameMs": {
+      "avg": 262.62,
+      "p50": 250,
+      "p95": 300,
+      "p99": 483.3,
+      "max": 1749.9
+    },
+    "longFramesOver33ms": 423,
+    "drawCalls": 169,
+    "triangles": 100643,
+    "gpuTextures": 76,
+    "gpuGeometries": 1075,
+    "jsHeapMB": 29.8,
+    "timeToInteractiveMs": 2123,
+    "firstFrameMs": 2122,
+    "transferBytes": {
+      "js": 337096,
+      "textures": 581520,
+      "models": 794104,
+      "html": 3313
+    },
+    "lightPool": 5,
+    "leonModel": "glb",
+    "completedRoute": true,
+    "errors": []
+  }
+}

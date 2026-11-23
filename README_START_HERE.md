@@ -9,8 +9,8 @@ Help the game creator make an original, premium-feeling **single-player cinemati
 ## Files in reading order
 
 1. `CLAUDE.md` -- collaboration rules and the immediate assignment.
-2. `docs/design/MARGIN_CITY_MASTER_BIBLE_v1.1_PL.md` -- CURRENT, CANONICAL story and product brief. Read fully.
-3. `docs/reviews/CREATIVE_REVIEW_01.md` -- Claude's previous critique; ideas here are **not yet approved**.
+2. `docs/design/MARGIN_CITY_MASTER_BIBLE_v1.2_PL.md` -- CURRENT, CANONICAL story and product brief (v1.2: I-1…I-5 approved). Read fully. Then `docs/design/STORY_BIBLE_v1.0_PL.md`.
+3. `docs/reviews/CREATIVE_REVIEW_01.md` -- Claude's first critique; its I-1…I-5 were approved on 2026-11-23 (see Bible v1.2 §14). The rest remain suggestions.
 4. `docs/tech/WEB_FIRST_TECH_DECISION.md` -- main assignment: make an independent web-first technology recommendation.
 5. `docs/tech/PRODUCTION_GATE.md` -- move from recommendations into executable work.
 6. `reference_legacy_godot/` -- old Godot greybox source, provided for READ-ONLY AUDIT, not story authority.
