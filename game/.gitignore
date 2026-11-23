@@ -3,3 +3,4 @@ dist/
 measurements/*.png
 tools/blender/out/
 tools/blender/__pycache__/
+public/models/test/

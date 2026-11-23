@@ -287,65 +287,9 @@ GROUPS = {
 rig.skin(parts, RIGID, C.default_region(arm_min_x=0.15, torso_max_x=0.23), GROUPS)
 
 # ------------------------------------------------------------------ animation
-G = C.gait
-T = math.tau
+import clips  # noqa: E402
 
-
-def behind_back(p):
-    p = dict(p)
-    # solved numerically (tools: hand.L ≈ (0.05, 0.16, 1.10) — hands meet behind the back at the belt)
-    p.update(shoulder=(-0.65, -0.65), armOut=(-0.05, -0.05), armTwist=(0.8, 0.8), elbow=(0.8, 0.8), wrist=(0.2, 0.2))
-    return p
-
-
-def coat_tails(thL, thR, flare=0.0, sway=0.0):
-    return {'coat.L': [(X, -thL * 0.55 + flare)], 'coat.R': [(X, -thR * 0.55 + flare)], 'coat.B': [(X, flare * 1.3 + sway)]}
-
-
-def walk(t):
-    p = behind_back(G(t, 0.36, 0.5, 0.0, 0.02, 0.018, 0.0))
-    lag = G((t - 0.07) % 1.0, 0.36, 0.5, 0.0, 0.0, 0.0, 0.0)['thigh']
-    p['extra'] = coat_tails(lag[0], lag[1], 0.04, math.sin(t * T * 2) * 0.03)
-    p['torsoTwist'] = p['torsoTwist'] * 0.4
-    return p
-
-
-def run(t):
-    p = G(t, 0.82, 1.3, 0.85, 0.24, 0.05, 1.3)
-    lag = G((t - 0.09) % 1.0, 0.82, 1.3, 0.0, 0.0, 0.0, 0.0)['thigh']
-    p['extra'] = coat_tails(lag[0], lag[1], 0.38, math.sin(t * T * 2) * 0.08)
-    p['armOut'] = 0.12
-    return p
-
-
-def idle(t):
-    p = behind_back({'breath': math.sin(t * T) * 0.018, 'hipsY': math.sin(t * T) * 0.003, 'headTilt': 0.06})
-    p['extra'] = coat_tails(0, 0, 0.02, math.sin(t * T) * 0.01)
-    return p
-
-
-def consult(t):
-    # Hand to the temple implant: "consulting MIRROR forecast"
-    p = idle(t)
-    # right fingertips to the temple implant (solved numerically), left hand stays behind the back
-    p.update(shoulder=(-0.65, 2.4), armOut=(-0.05, 0.6), armTwist=(0.8, 1.2), elbow=(0.8, 2.4), wrist=(0.2, 0.3), headTilt=0.1 + math.sin(t * T) * 0.02, headRoll=-0.1)
-    return p
-
-
-def grab(t):
-    k = min(1.0, t * 1.6)
-    p = {'shoulder': (-0.65 * (1 - k) + 0.9 * k, -0.65 * (1 - k) + 1.45 * k), 'armOut': (0.1 * k - 0.05 * (1 - k), 0.05), 'armTwist': (0.8 * (1 - k), 0.8 * (1 - k)),
-         'elbow': (0.8 * (1 - k) + 0.5 * k, 0.8 * (1 - k) + 0.15 * k), 'lean': 0.18 * k, 'thigh': (0.25 * k, -0.1 * k), 'knee': (0.3 * k, 0.15 * k)}
-    p['extra'] = coat_tails(0.25 * k, -0.1 * k, 0.1 * k)
-    return p
-
-
-rig.action('Idle', 90, idle)
-rig.action('Walk', 32, walk)
-rig.action('Run', 18, run)
-rig.action('Consult', 60, consult)
-rig.action('Grab', 14, grab, loop=False)
-rig.rest_pose()
+clips.mm01_clips(rig)
 
 body = C.join_all(parts, 'MM01Mesh')
 C.bake_ao_to_vertex_colors(body, samples=48, distance=0.25)

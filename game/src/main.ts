@@ -170,7 +170,9 @@ const timings: Record<string, number> = {};
 async function boot(): Promise<void> {
   const loadbar = $('loadbar').firstElementChild as HTMLElement;
   const glbT0 = performance.now();
-  const glbPromise = loadGLB('models/leon.glb')
+  // ?leonModel=models/test/x.glb — A/B a candidate Leon (e.g. an AI-generated mesh after tools/blender/conform_character.py).
+  const leonUrl = params.get('leonModel') && /^models\/[\w./-]+\.glb$/.test(params.get('leonModel')!) ? params.get('leonModel')! : 'models/leon.glb';
+  const glbPromise = loadGLB(leonUrl)
     .then((g) => {
       timings.glbMs = performance.now() - glbT0;
       return g;

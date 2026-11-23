@@ -249,37 +249,9 @@ GROUPS = {
 rig.skin(parts, RIGID, C.default_region(arm_min_x=0.14, torso_max_x=0.225), GROUPS)
 
 # ------------------------------------------------------------------ animation (shared clip contract)
-G = C.gait
+import clips  # noqa: E402
 
-
-def crouch(p, k=1.0):
-    p = dict(p)
-    th = p.get('thigh', (0, 0))
-    kn = p.get('knee', (0, 0))
-    p.update(thigh=(th[0] + 1.05 * k, th[1] + 1.05 * k), knee=(kn[0] + 1.75 * k, kn[1] + 1.75 * k), ankle=(-0.5 * k, -0.5 * k))
-    p['lean'] = p.get('lean', 0) + 0.45 * k
-    p['hipsY'] = p.get('hipsY', 0) - 0.34 * k
-    p['elbow'] = (0.8, 0.8)
-    p['armOut'] = 0.18
-    return p
-
-
-T = math.tau
-rig.action('Idle', 72, lambda t: {'breath': math.sin(t * T) * 0.025, 'headTurn': math.sin(t * T) * 0.1, 'shoulder': (0.04, 0.12), 'elbow': (0.25, 0.75), 'hipsY': math.sin(t * T * 2) * 0.004, 'armOut': 0.1})
-# compass held in front of the chest, elbow at the side (angles solved numerically: hand.R ≈ (-0.10, -0.21, 1.27))
-rig.action('IdleCompass', 90, lambda t: {'breath': math.sin(t * T) * 0.02, 'shoulder': (0.05, 0.2), 'elbow': (0.3, 2.0 + math.sin(t * T) * 0.04), 'armOut': (0.1, 0.2), 'armTwist': (0, 0.8), 'headTilt': 0.4 + math.sin(t * T) * 0.03, 'headTurn': -0.18})
-rig.action('Walk', 20, lambda t: {**G(t, 0.5, 0.75, 0.42, 0.06, 0.035, 0.35), 'armOut': 0.1})
-rig.action('Run', 16, lambda t: {**G(t, 0.92, 1.4, 0.85, 0.28, 0.06, 1.2), 'armOut': 0.12})
-rig.action('CrouchIdle', 60, lambda t: crouch({'breath': math.sin(t * T) * 0.02}))
-rig.action('CrouchWalk', 28, lambda t: crouch(G(t, 0.35, 0.4, 0.2, 0.0, 0.02, 0.8)))
-rig.action('Push', 30, lambda t: {**G(t, 0.3, 0.5, 0.0, 0.55, 0.02, 0.4), 'shoulder': (1.35, 1.25), 'elbow': (0.35, 0.4), 'armOut': 0.12, 'hipsY': -0.05})
-rig.action('JumpUp', 12, lambda t: {'thigh': (0.95, 0.35), 'knee': (1.45, 0.6), 'shoulder': (0.9, -0.5), 'elbow': (0.9, 0.5), 'lean': 0.15})
-rig.action('Fall', 20, lambda t: {'thigh': (0.45 + math.sin(t * T) * 0.08, -0.1), 'knee': (0.5, 0.25), 'shoulder': (1.2, 0.8), 'armOut': 0.45 + math.sin(t * T) * 0.1, 'elbow': (0.3, 0.3), 'lean': 0.15})
-rig.action('Slide', 12, lambda t: {'thigh': (1.35, 0.5), 'knee': (0.25, 1.9), 'shoulder': (-0.6, -0.9), 'elbow': (0.6, 0.4), 'armOut': 0.35, 'lean': -0.35, 'hipsY': -0.5})
-rig.action('Mantle', 14, lambda t: {'shoulder': (2.9 - 2.3 * t, 2.9 - 2.3 * t), 'elbow': (0.2 + 1.4 * t, 0.2 + 1.4 * t), 'thigh': (1.3, 0.2 + 0.9 * t), 'knee': (1.8, 0.4 + 1.2 * t), 'lean': 0.1 + 0.55 * t}, loop=False)
-rig.action('Hide', 60, lambda t: crouch({'breath': math.sin(t * T) * 0.03, 'shoulder': (-0.15, -0.15), 'headTurn': math.sin(t * T) * 0.3}, 0.4))
-rig.action('Caught', 20, lambda t: {'shoulder': (2.3, 2.1), 'elbow': (0.6, 0.5), 'lean': -0.25, 'armOut': 0.4, 'headTilt': 0.2})
-rig.rest_pose()
+clips.leon_clips(rig)
 
 body = C.join_all(parts, 'LeonMesh')
 C.bake_ao_to_vertex_colors(body, samples=48, distance=0.22)
