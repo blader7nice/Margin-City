@@ -178,9 +178,10 @@ export class GltfLeonRig {
     this.mixer.update(dt);
 
     // Readability fill, as on the procedural rig.
+    // M04: stronger lift in dark areas — Leon must stay readable as a silhouette AND show his face/coat colour.
     const dark = 1 - Math.min(1, l.light * 1.4);
-    this.fill.intensity = 2.0 + dark * 3.2;
-    this.rim.intensity = 6 + dark * 4;
+    this.fill.intensity = 2.2 + dark * 4.6;
+    this.rim.intensity = 6.5 + dark * 7.5;
 
     // Additive head look toward MM-01 on top of the clip.
     let lookTarget = 0;

@@ -21,6 +21,7 @@ import { QUALITY, type QualityName } from './render/quality';
 import { Input } from './input';
 import { Terminal } from './replay/terminal';
 import { scenarioFromId, storyScenario } from './replay/scenarios';
+import { OPENING_CSS, showOpening } from './story/opening';
 import { Audio } from './audio/audio';
 import { FrameMetrics } from './metrics';
 
@@ -246,7 +247,14 @@ async function boot(): Promise<void> {
     assetStats: assets.stats,
     photo,
   };
-  btn.onclick = () => start();
+  // Canon I-1: the night begins with Dave's dead man's switch and K.'s warning (skipped by test/photo flags).
+  const openingCss = document.createElement('style');
+  openingCss.textContent = OPENING_CSS;
+  document.head.appendChild(openingCss);
+  btn.onclick = () => {
+    if (params.get('nointro') === '1' || params.get('noopening') === '1' || spawnParam) start();
+    else void showOpening(document.body).then(start);
+  };
   document.querySelectorAll<HTMLButtonElement>('#qualityRow button').forEach((b) => {
     if (b.dataset.q === Q.name) b.classList.add('sel');
     b.onclick = () => switchQuality(b.dataset.q as QualityName);
@@ -272,7 +280,7 @@ function start(): void {
     /* audio optional */
   }
   if (!bench && params.get('nointro') !== '1' && !spawnParam) director.startIntro();
-  setObjective('Wejdź do hali notowań i znajdź <b>Archiwum B-12</b>');
+  setObjective('Znajdź <b>Archiwum B-12</b> przed likwidacją o 06:00');
   timings.started = performance.now();
   metrics.reset();
 }
@@ -393,6 +401,8 @@ function handleEvents(): void {
       case 'reveal':
         audio.sting('reveal');
         director.startReveal();
+        // Canon I-1: MM-01 supervises the archive's liquidation tonight.
+        setTimeout(() => subtitle('MM-01', 'Archive B-12: liquidation at 06:00. Final sweep in progress.', 3.6), 2600);
         break;
       case 'finished':
         audio.sting('finish');
@@ -403,7 +413,7 @@ function handleEvents(): void {
       case 'noise':
         break;
       case 'sealed':
-        subtitle('LEON', 'Zaplombowane… MIRROR zamknął to od środka. Musi być inna droga.', 3.6);
+        subtitle('LEON', 'Zaplombowane… protokół likwidacji zamknął to od środka. Musi być inna droga.', 3.6);
         break;
       case 'lever':
         audio.clank();

@@ -622,6 +622,12 @@ export function buildArchive(a: Assets, lights: LightPool): ArchiveRefs {
     add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 2.6, 4), iron, x, 8.4, -0.4, false, false));
     lights.add({ position: [x, 6.6, -0.2], color: 0xffbd7a, intensity: main ? 46 : 28, distance: main ? 0 : 16, decay: 2 });
   }
+  // M04 readability: caged work lamps UNDER the catwalk — the catwalk shades the floor lane, where the chase often runs.
+  for (const x of [58.5, 68.5, 78.5]) {
+    add(mesh(new THREE.BoxGeometry(0.22, 0.16, 0.12), iron, x, 2.35, -1.62, false, false));
+    add(mesh(new THREE.SphereGeometry(0.075, 10, 8), amberLamp, x, 2.27, -1.52, false, false));
+    lights.add({ position: [x, 2.2, -1.1], color: 0xffb870, intensity: 9, distance: 7.5, decay: 2 });
+  }
   // Cool bounce from the high windows onto the stacks (keeps the background readable).
   for (const x of [55, 71, 87]) lights.add({ position: [x, 8.0, -9.0], color: 0x7f9cff, intensity: 22, distance: 16, decay: 2 });
   let alarmOn = false;

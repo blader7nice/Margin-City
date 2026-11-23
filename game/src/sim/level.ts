@@ -10,7 +10,7 @@ import type { Checkpoint, HideSpot, LightZone, Solid } from './types';
  *  B. Half-closed security shutter (crouch tutorial).
  *  C. Trading floor: counters (real occlusion cover), MIRROR forecast phone booth, MM-01 patrol.
  *     Upper "third way": crates → mezzanine (dark, quiet if careful, broken gap = landing noise risk).
- *  D. Corridor: vault door B-12 is sealed by MIRROR → puzzle "The Archivist's Balance" (two counterweighted
+ *  D. Corridor: vault door B-12 is sealed by the liquidation protocol → puzzle "The Archivist's Balance" (two counterweighted
  *     brass cages, a ledger cart, a brake lever) → broken service ledge → emergency hatch (triggers the alarm).
  *  E. Archive wing B: two-lane chase (floor + catwalk) against MM-01 and MIRROR route forecasts;
  *     MIRROR seals gates on the predicted lane, MM-01 uses stairs / a service passage to cut Leon off;

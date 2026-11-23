@@ -27,6 +27,8 @@
         --ink: #efe6d6;
       }
       * { box-sizing: border-box; }
+      /* UI scale: 14px on small screens → ~17px at 1920 → 22px on 4K. HUD sizes below are in rem. */
+      html { font-size: clamp(14px, 0.42vw + 8.5px, 22px); }
       html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; font-family: 'Iowan Old Style', Georgia, 'Times New Roman', serif; }
       canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
       .ui { position: fixed; pointer-events: none; z-index: 5; }
@@ -34,31 +36,31 @@
       #letterTop { top: 0; transform-origin: top; }
       #letterBot { bottom: 0; transform-origin: bottom; }
       #fade { inset: 0; background: #000; opacity: 0; }
-      #objective { top: 22px; left: 26px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); max-width: 60vw; transition: opacity 0.8s; }
+      #objective { top: 1.4rem; left: 1.6rem; font-size: 0.86rem; text-shadow: 0 1px 6px #000; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); max-width: 60vw; transition: opacity 0.8s; }
       #objective b { color: var(--ink); font-weight: 600; }
-      #prompt { bottom: 12vh; left: 50%; transform: translateX(-50%); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); padding: 7px 14px; border-radius: 3px; opacity: 0; transition: opacity 0.25s; white-space: nowrap; }
-      #prompt kbd, .keys kbd { font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid rgba(255,255,255,0.35); border-bottom-width: 2px; padding: 1px 6px; border-radius: 3px; margin: 0 2px; }
-      #subtitle { bottom: 15.5vh; left: 50%; transform: translateX(-50%); font-size: clamp(15px, 2vw, 21px); text-align: center; color: #f3ead8; text-shadow: 0 2px 8px #000; opacity: 0; transition: opacity 0.4s; max-width: 80vw; }
+      #prompt { bottom: 12vh; left: 50%; transform: translateX(-50%); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 1rem; color: var(--ink); background: var(--panel); border: 1px solid var(--line); padding: 0.45rem 0.9rem; border-radius: 3px; opacity: 0; transition: opacity 0.25s; white-space: nowrap; }
+      #prompt kbd, .keys kbd { font-family: ui-monospace, monospace; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.35); border-bottom-width: 2px; padding: 1px 6px; border-radius: 3px; margin: 0 2px; }
+      #subtitle { bottom: 15.5vh; left: 50%; transform: translateX(-50%); font-size: clamp(1.05rem, 1.7vw, 1.65rem); text-align: center; color: #f3ead8; text-shadow: 0 2px 8px #000; opacity: 0; transition: opacity 0.4s; max-width: 80vw; }
       #subtitle .who { color: var(--cyan); font-family: ui-monospace, monospace; font-size: 0.8em; letter-spacing: 0.12em; }
-      #mirror { top: 9vh; left: 50%; transform: translateX(-50%); font-family: ui-monospace, 'Courier New', monospace; font-size: clamp(12px, 1.5vw, 15px); letter-spacing: 0.08em; color: var(--cyan); text-shadow: 0 0 12px rgba(80,230,255,0.6); background: rgba(0,10,14,0.55); border: 1px solid rgba(111,243,255,0.3); padding: 6px 14px; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
-      #toast { top: 22px; right: 26px; font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: 0.12em; color: #b8f3c8; opacity: 0; transition: opacity 0.5s; }
-      #viewTag { bottom: 16px; left: 18px; font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+      #mirror { top: 9vh; left: 50%; transform: translateX(-50%); font-family: ui-monospace, 'Courier New', monospace; font-size: clamp(0.85rem, 1.25vw, 1.2rem); letter-spacing: 0.08em; color: var(--cyan); text-shadow: 0 0 12px rgba(80,230,255,0.6); background: rgba(0,10,14,0.55); border: 1px solid rgba(111,243,255,0.3); padding: 6px 14px; opacity: 0; transition: opacity 0.3s; white-space: nowrap; }
+      #toast { top: 1.4rem; right: 1.6rem; font-family: ui-monospace, monospace; font-size: 0.8rem; letter-spacing: 0.12em; color: #b8f3c8; opacity: 0; transition: opacity 0.5s; }
+      #viewTag { bottom: 1rem; left: 1.1rem; font-family: ui-monospace, monospace; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; }
       #debug { top: 12px; right: 12px; width: 300px; font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.45; background: rgba(0,0,0,0.72); border: 1px solid rgba(255,255,255,0.12); padding: 10px 12px; color: #d8e2ea; display: none; white-space: pre; }
       #debug canvas { display: block; margin-top: 6px; width: 100%; height: 46px; }
       .bar { height: 5px; background: rgba(255,255,255,0.12); margin: 2px 0 6px; }
       .bar > i { display: block; height: 100%; background: var(--amber); }
       #start, #end { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 40%, rgba(40,28,14,0.55), rgba(3,4,8,0.94) 70%); }
       #end { display: none; }
-      .card { width: min(560px, calc(100vw - 32px)); text-align: center; padding: 32px 24px; }
-      .kicker { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: 0.32em; color: var(--amber); }
+      .card { width: min(36rem, calc(100vw - 32px)); text-align: center; padding: 32px 24px; }
+      .kicker { font-family: ui-monospace, monospace; font-size: 0.72rem; letter-spacing: 0.32em; color: var(--amber); }
       h1 { font-weight: 400; font-size: clamp(30px, 5.4vw, 52px); letter-spacing: 0.08em; margin: 14px 0 4px; }
       h2 { font-weight: 400; font-size: clamp(16px, 2.6vw, 22px); letter-spacing: 0.3em; color: var(--muted); margin: 0 0 22px; }
       .rule { width: 120px; height: 1px; margin: 18px auto; background: linear-gradient(90deg, transparent, var(--amber), transparent); }
-      .keys { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; color: var(--muted); line-height: 2; }
+      .keys { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem; color: var(--muted); line-height: 2; }
       .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 16px 0 6px; }
-      button { pointer-events: auto; font: inherit; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; letter-spacing: 0.08em; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 8px 14px; border-radius: 2px; cursor: pointer; }
+      button { pointer-events: auto; font: inherit; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem; letter-spacing: 0.08em; color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 8px 14px; border-radius: 2px; cursor: pointer; }
       button.sel { border-color: var(--amber); color: var(--amber); }
-      button.primary { font-size: 15px; padding: 12px 30px; border-color: var(--amber); background: rgba(255,179,90,0.08); margin-top: 14px; }
+      button.primary { font-size: 1rem; padding: 12px 30px; border-color: var(--amber); background: rgba(255,179,90,0.08); margin-top: 14px; }
       button:disabled { opacity: 0.4; cursor: default; }
       #loadbar { height: 2px; width: 220px; margin: 18px auto 0; background: rgba(255,255,255,0.1); }
       #loadbar i { display: block; height: 100%; width: 0; background: var(--amber); transition: width 0.2s; }
@@ -66,7 +68,7 @@
       #benchOut { font-family: ui-monospace, monospace; font-size: 12px; text-align: left; white-space: pre; background: rgba(0,0,0,0.6); padding: 12px; margin-top: 14px; user-select: text; pointer-events: auto; }
       @media (max-width: 600px) { #debug { width: 220px; font-size: 10px; } #objective { left: 16px; } }
       body.photo #objective, body.photo #toast, body.photo #subtitle, body.photo #prompt, body.photo #mirror, body.photo #viewTag, body.photo #letterTop, body.photo #letterBot { display: none !important; }
-  #playtest { margin-top: 14px; text-align: left; font: 12px/1.45 ui-monospace, Menlo, monospace; color: #cfc6b4; max-width: 560px; }
+  #playtest { margin-top: 14px; text-align: left; font: 0.8rem/1.45 ui-monospace, Menlo, monospace; color: #cfc6b4; max-width: 560px; }
   #playtest .pt-sum { white-space: normal; opacity: .85; margin-bottom: 10px; }
   #playtest .pt-q { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 4px 0; }
   #playtest .pt-r button { width: 26px; height: 24px; padding: 0; margin-left: 3px; font-size: 12px; }
@@ -92,7 +94,7 @@
       <div class="card">
         <div class="kicker">MARGIN CITY · THE LAST SIGNAL</div>
         <h1>THE LAST SHIFT</h1>
-        <h2>PROTOTYP 0.1</h2>
+        <h2>PROTOTYP · M04</h2>
         <div class="keys">
           <kbd>A</kbd><kbd>D</kbd> ruch &nbsp; <kbd>Shift</kbd> bieg (głośno) &nbsp; <kbd>Spacja</kbd> skok / wspinaczka<br />
           <kbd>Ctrl</kbd>/<kbd>C</kbd> kucanie &nbsp; <kbd>E</kbd> kryjówka / interakcja &nbsp; <kbd>S</kbd>+<kbd>Spacja</kbd> zeskok<br />

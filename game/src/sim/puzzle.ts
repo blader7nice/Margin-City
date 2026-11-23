@@ -10,7 +10,7 @@ import type { AABB, LeonState, SimEvent, Solid } from './types';
  * The brake only releases while someone in the right cage holds the operator lever.
  * Leon alone is too light to lift himself; the ledger cart (heavier than Leon) must ride the left cage.
  *
- *   1. The vault is sealed by MIRROR → look for another way (the broken ledge above it, out of reach).
+ *   1. The vault is sealed by the archive's liquidation protocol → look for another way (the broken ledge above it, out of reach).
  *   2. Climb to the cart gallery, push the cart into the left cage (it locks in).
  *   3. Drop down, step into the right cage, pull the lever → cart sinks, Leon rises to the ledge.
  *   4. Emergency hatch panel: clearly warns that opening it will trigger the alarm (chase).
